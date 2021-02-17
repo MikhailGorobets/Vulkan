@@ -1,0 +1,10 @@
+cmake_minimum_required (VERSION 3.13)
+
+add_subdirectory(dxc)
+add_subdirectory(fmt)
+add_subdirectory(glfw)
+add_subdirectory(imgui)
+add_subdirectory(implot)
+add_subdirectory(smolv)
+add_subdirectory(spirv)
+add_subdirectory(vulkan)

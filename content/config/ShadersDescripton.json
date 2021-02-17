@@ -1,0 +1,21 @@
+[
+  {
+    "WaveFront": {
+      "File": "content/shaders/WaveFront.hlsl",
+      "Vert": "VSMain",
+      "Frag": "PSMain",
+      "Defines":  [],
+      "Constant": []
+
+    }
+  },
+  {
+    "ImGui": {
+      "File": "content/shaders/Imgui.hlsl",
+      "Vert": "VSMain",
+      "Frag": "PSMain",
+      "Defines":  [],
+      "Constant": []
+    }
+  }
+]
