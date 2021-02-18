@@ -9,30 +9,35 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <optional>
+
 namespace vkx {
 
-    inline auto getIndexQueueFamilyGraphics(vk::PhysicalDevice device) -> uint32_t {
-       auto const queueFamilyProperties = device.getQueueFamilyProperties();
-       auto const queueIndex = static_cast<uint32_t>(std::distance(std::begin(queueFamilyProperties), std::find_if(std::begin(queueFamilyProperties), std::end(queueFamilyProperties), [](auto const& e) {
-           return e.queueFlags & vk::QueueFlagBits::eGraphics;
-       })));
-       return queueIndex;
+    inline auto getIndexQueueFamilyGraphics(vk::PhysicalDevice device) -> std::optional<uint32_t> {    
+        for(uint32_t index = 0; auto const& e: device.getQueueFamilyProperties()) {
+            if (e.queueFlags & vk::QueueFlagBits::eGraphics)
+                return index;
+            index++;
+        }
+        return {};
     }
 
-    inline auto getIndexQueueFamilyCompute(vk::PhysicalDevice device) -> uint32_t {
-       auto const queueFamilyProperties = device.getQueueFamilyProperties();
-       auto const queueIndex = static_cast<uint32_t>(std::distance(std::begin(queueFamilyProperties), std::find_if(std::begin(queueFamilyProperties), std::end(queueFamilyProperties), [](auto const& e) {
-           return (e.queueFlags & vk::QueueFlagBits::eCompute) && !(e.queueFlags & vk::QueueFlagBits::eGraphics);
-       })));
-       return queueIndex;
+    inline auto getIndexQueueFamilyCompute(vk::PhysicalDevice device) -> std::optional<uint32_t> {
+        for(uint32_t index = 0; auto const& e: device.getQueueFamilyProperties()) {
+            if ((e.queueFlags & vk::QueueFlagBits::eCompute) && !(e.queueFlags & vk::QueueFlagBits::eGraphics))
+                return index;
+            index++;
+        }
+        return {};
     }
 
-    inline auto getIndexQueueFamilyTransfer(vk::PhysicalDevice device) -> uint32_t {
-        auto const queueFamilyProperties = device.getQueueFamilyProperties();
-        auto const queueIndex = static_cast<uint32_t>(std::distance(std::begin(queueFamilyProperties), std::find_if(std::begin(queueFamilyProperties), std::end(queueFamilyProperties), [](auto const& e) {
-            return (e.queueFlags & vk::QueueFlagBits::eTransfer) && !(e.queueFlags & vk::QueueFlagBits::eCompute);
-        })));
-        return queueIndex;
+    inline auto getIndexQueueFamilyTransfer(vk::PhysicalDevice device) -> std::optional<uint32_t> {
+        for(uint32_t index = 0; auto const& e: device.getQueueFamilyProperties()) {
+            if ((e.queueFlags & vk::QueueFlagBits::eTransfer) && !(e.queueFlags & vk::QueueFlagBits::eCompute))
+                return index;
+            index++;
+        }
+        return {};
     }
 
     template<typename T>

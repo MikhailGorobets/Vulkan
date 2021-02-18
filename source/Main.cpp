@@ -13,6 +13,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <hlslpp/hlsl++.h>
+
 #include <fstream>
 #include <chrono>
 #include <thread>
@@ -486,10 +488,9 @@ namespace vkx {
 //}
 //
 
-#undef main
+
 int main(int argc, char* argv[]) {
     
-
     auto const WINDOW_TITLE = "Application Vulkan";
     auto const WINDOW_WIDTH  = 1920;
     auto const WINDOW_HEIGHT = 1280;
@@ -567,9 +568,9 @@ int main(int argc, char* argv[]) {
 
     vk::PhysicalDevice physicalDevice = pInstance->enumeratePhysicalDevices().front();
 
-    const uint32_t indexQueueFamilyGraphics = vkx::getIndexQueueFamilyGraphics(physicalDevice);
-    const uint32_t indexQueueFamilyCompute  = vkx::getIndexQueueFamilyCompute(physicalDevice);
-    const uint32_t indexQueueFamilyTransfer = vkx::getIndexQueueFamilyTransfer(physicalDevice);
+    const uint32_t indexQueueFamilyGraphics = vkx::getIndexQueueFamilyGraphics(physicalDevice).value();
+    const uint32_t indexQueueFamilyCompute  = vkx::getIndexQueueFamilyCompute(physicalDevice).value();
+    const uint32_t indexQueueFamilyTransfer = vkx::getIndexQueueFamilyTransfer(physicalDevice).value();
  
     vk::UniqueDevice pDevice; {
 
