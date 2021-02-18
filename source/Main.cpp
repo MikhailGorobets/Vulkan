@@ -572,6 +572,7 @@ int main(int argc, char* argv[]) {
     const uint32_t indexQueueFamilyTransfer = vkx::getIndexQueueFamilyTransfer(physicalDevice);
  
     vk::UniqueDevice pDevice; {
+
         float queuePriorities[] = { 1.0f };
 
         vk::DeviceQueueCreateInfo deviceQueueCI[] = {
@@ -637,7 +638,7 @@ int main(int argc, char* argv[]) {
     MemoryStatisticCPU memoryCPU;
   
     vma::UniqueAllocator pAllocator; {
-     
+
         vma::DeviceMemoryCallbacks deviceMemoryCallbacks = {
             .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
             .pfnFree     = MemoryStatisticGPU::GPUFree,
@@ -683,6 +684,7 @@ int main(int argc, char* argv[]) {
     }
     
     vk::UniqueRenderPass pRenderPass; {
+
         vk::AttachmentDescription attachments[] = {
             vk::AttachmentDescription{
                 .format = vk::Format::eB8G8R8A8Srgb,
@@ -762,11 +764,22 @@ int main(int argc, char* argv[]) {
     }
 
     vk::UniquePipelineCache pPipelineCache;{
-        vk::PipelineCacheCreateInfo pipelineCacheCI = {
-            .initialDataSize = 0,
-            .pInitialData = nullptr
+        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);     
+        std::vector<uint8_t> cacheData{};
 
+        if (pFile.get() != nullptr) {         
+            std::fseek(pFile.get(), 0, SEEK_END);
+            size_t size = std::ftell(pFile.get());
+            std::fseek(pFile.get(), 0, SEEK_SET);
+            cacheData.resize(size);       
+            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
+        }
+    
+        vk::PipelineCacheCreateInfo pipelineCacheCI = {
+            .initialDataSize = std::size(cacheData),
+            .pInitialData = std::data(cacheData)
         };
+
         pPipelineCache = pDevice->createPipelineCacheUnique(pipelineCacheCI);
         vkx::setDebugName(*pDevice, *pPipelineCache, "");
     }
@@ -1389,8 +1402,17 @@ int main(int argc, char* argv[]) {
         CPUFrameTime = std::chrono::duration<float, std::milli>(timestampT1 - timestampT0).count();
         currentFrame = (currentFrame + 1) % FRAMES_IN_FLIGHT;
     }
- 
+
+    {
+        std::vector<uint8_t> cacheData = pDevice->getPipelineCacheData(*pPipelineCache);
+        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "wb"), std::fclose);
+        std::fwrite(std::data(cacheData), sizeof(uint8_t), std::size(cacheData), pFile.get());
+    }
+  
+
     pDevice->waitIdle();
+    
+
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
