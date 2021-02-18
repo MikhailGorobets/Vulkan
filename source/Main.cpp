@@ -21,7 +21,7 @@
 #include <numeric>
 #include <sstream>
 #include <mutex>
-
+#include <cinttypes>
 
 struct ScrollingBuffer {
     int32_t MaxSize = 4096;
@@ -486,9 +486,12 @@ namespace vkx {
 //}
 //
 
-#undef main
+
 int main(int argc, char* argv[]) {
-    
+   
+    uint32_t deviceID = argc > 1 ? std::stoi(argv[1]) : 0;
+
+    fmt::print("Argument Device ID: {}\n", deviceID);
 
     auto const WINDOW_TITLE = "Application Vulkan";
     auto const WINDOW_WIDTH  = 1920;
@@ -513,14 +516,10 @@ int main(int argc, char* argv[]) {
         VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
     };
   
-    struct GLFWScoped {
-         GLFWScoped() { 
-            glfwInit();
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-         }
-        ~GLFWScoped() { glfwTerminate(); }
-    } GLFW;
-   
+ 
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
     std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> pWindow(glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr), glfwDestroyWindow);
   
     vk::DynamicLoader vulkanDLL;
@@ -535,7 +534,9 @@ int main(int argc, char* argv[]) {
 #ifdef _DEBUG
                 instanceLayers.push_back(INSTANCE_LAYERS[index]);
 #endif
+                continue;
             }
+            fmt::print("Warning: Required Vulkan Instance Layer {0} not supported\n", INSTANCE_LAYERS[index]);
         }
 
         std::vector<const char*> instanceExtensions;
@@ -543,7 +544,9 @@ int main(int argc, char* argv[]) {
         for (size_t index = 0; index < _countof(INSTANCE_EXTENSION); index++) {
             if (vkx::isInstanceExtensionAvailable(instanceExtensionProperties, INSTANCE_EXTENSION[index])) {
                 instanceExtensions.push_back(INSTANCE_EXTENSION[index]);
+                continue;
             }
+            fmt::print("Warning: Required Vulkan Instance Extension {0} not supported\n", INSTANCE_EXTENSION[index]);
         }
 
         vk::ApplicationInfo applicationInfo = {
@@ -564,12 +567,17 @@ int main(int argc, char* argv[]) {
         pInstance = vk::createInstanceUnique(instanceCI);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*pInstance);
     }
-
-    vk::PhysicalDevice physicalDevice = pInstance->enumeratePhysicalDevices().front();
+    
+    for(size_t deviceID = 0; auto const& device: pInstance->enumeratePhysicalDevices()) {
+        fmt::print("[{0}]: Name: {1}\n", deviceID, device.getProperties().deviceName);
+        deviceID++;
+    }
+   
+    vk::PhysicalDevice physicalDevice = pInstance->enumeratePhysicalDevices()[deviceID];
 
     const uint32_t indexQueueFamilyGraphics = vkx::getIndexQueueFamilyGraphics(physicalDevice);
-    const uint32_t indexQueueFamilyCompute  = vkx::getIndexQueueFamilyCompute(physicalDevice);
-    const uint32_t indexQueueFamilyTransfer = vkx::getIndexQueueFamilyTransfer(physicalDevice);
+    //const uint32_t indexQueueFamilyCompute  = vkx::getIndexQueueFamilyCompute(physicalDevice);
+    //const uint32_t indexQueueFamilyTransfer = vkx::getIndexQueueFamilyTransfer(physicalDevice);
  
     vk::UniqueDevice pDevice; {
 
@@ -581,28 +589,28 @@ int main(int argc, char* argv[]) {
                 .queueCount = _countof(queuePriorities),
                 .pQueuePriorities = queuePriorities
             },
-            vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = indexQueueFamilyCompute,
-                .queueCount = _countof(queuePriorities),
-                .pQueuePriorities = queuePriorities
-            },
-            vk::DeviceQueueCreateInfo{
-                .queueFamilyIndex = indexQueueFamilyTransfer,
-                .queueCount = _countof(queuePriorities),
-                .pQueuePriorities = queuePriorities
-            }
+            //vk::DeviceQueueCreateInfo{
+            //    .queueFamilyIndex = indexQueueFamilyCompute,
+            //    .queueCount = _countof(queuePriorities),
+            //    .pQueuePriorities = queuePriorities
+            //},
+            //vk::DeviceQueueCreateInfo{
+            //    .queueFamilyIndex = indexQueueFamilyTransfer,
+            //    .queueCount = _countof(queuePriorities),
+            //    .pQueuePriorities = queuePriorities
+            //}
         };
-       
+    
         vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceShaderFloat16Int8Features, vk::PhysicalDeviceImagelessFramebufferFeatures> enabledFeatures = { 
             vk::PhysicalDeviceFeatures2 { 
                 .features = vk::PhysicalDeviceFeatures {
-                    .shaderInt64 = true,
-                    .shaderInt16 = true
+                    .shaderInt64 = false,
+                    .shaderInt16 = false
                 }
             },
             vk::PhysicalDeviceShaderFloat16Int8Features{ 
-                .shaderFloat16 = true, 
-                .shaderInt8    = true 
+                .shaderFloat16 = false, 
+                .shaderInt8    = false 
             },
             vk::PhysicalDeviceImagelessFramebufferFeatures{ 
                 .imagelessFramebuffer = true 
@@ -614,7 +622,9 @@ int main(int argc, char* argv[]) {
         for (size_t index = 0; index < _countof(DEVICE_EXTENSION); index++) {
             if (vkx::isDeviceExtensionAvailable(deviceExtensionProperties, DEVICE_EXTENSION[index])) {
                 deviceExtensions.push_back(DEVICE_EXTENSION[index]);
+                continue;
             }
+            fmt::print("Warning: Required Vulkan Device Extension {0} not supported\n", DEVICE_EXTENSION[index]);
         }
 
         vk::DeviceCreateInfo deviceCI = {
@@ -859,12 +869,13 @@ int main(int argc, char* argv[]) {
             .pDynamicStates = dynamicStates
         };
                
-        vk::PipelineCreationFeedbackEXT creationFeedback = {};
+        vk::PipelineCreationFeedbackEXT creationFeedback = { };
+
         vk::PipelineCreationFeedbackEXT stageCreationFeedbacks[] = {
-            vk::PipelineCreationFeedbackEXT {},
-            vk::PipelineCreationFeedbackEXT {}
+            vk::PipelineCreationFeedbackEXT { },
+            vk::PipelineCreationFeedbackEXT { }
         };
- 
+    
         vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineCreationFeedbackCreateInfoEXT> pipelineCI = {
             vk::GraphicsPipelineCreateInfo {
                 .stageCount = _countof(shaderStagesCI),
@@ -886,10 +897,20 @@ int main(int argc, char* argv[]) {
                 .pPipelineStageCreationFeedbacks = stageCreationFeedbacks
             }
         };
-
+        auto const T0 = std::chrono::high_resolution_clock::now();
         std::tie(std::ignore, pPipeline) = pDevice->createGraphicsPipelineUnique(*pPipelineCache, pipelineCI.get<vk::GraphicsPipelineCreateInfo>()).asTuple();
+        auto const T1 = std::chrono::high_resolution_clock::now();
+        auto CPUTimePipline = std::chrono::duration<uint64_t, std::nano>(T1 - T0).count();
+
+
         vkx::setDebugName(*pDevice, *pPipeline, "WaveFront");      
-        fmt::print("Flags: {} Duration: {}s\n", vk::to_string(creationFeedback.flags), creationFeedback.duration / 1E9f);     
+        fmt::print("Create PSO: Flags: {0} PSO: Duration: {1} | VS: Duration {2} | FS: Duration {3} | CPU: Duration {4} \n", 
+            vk::to_string(creationFeedback.flags),
+            creationFeedback.duration,
+            stageCreationFeedbacks[0].duration,
+            stageCreationFeedbacks[1].duration,
+            CPUTimePipline
+        );     
     }
     
     std::vector<vk::UniqueCommandPool> commandPools;
@@ -1160,12 +1181,12 @@ int main(int argc, char* argv[]) {
     ResizeRenderTargets(WINDOW_WIDTH, WINDOW_HEIGHT);
 
     vk::Queue commandQueueGraphics = pDevice->getQueue(indexQueueFamilyGraphics, 0);
-    vk::Queue commandQueueCompute  = pDevice->getQueue(indexQueueFamilyCompute,  0);
-    vk::Queue commandQueueTransfer = pDevice->getQueue(indexQueueFamilyTransfer, 0);
+   // vk::Queue commandQueueCompute  = pDevice->getQueue(indexQueueFamilyCompute,  0);
+  //  vk::Queue commandQueueTransfer = pDevice->getQueue(indexQueueFamilyTransfer, 0);
 
     vkx::setDebugName(*pDevice, commandQueueGraphics, fmt::format("Graphics [{0}]", 0));
-    vkx::setDebugName(*pDevice, commandQueueCompute,  fmt::format("Compute  [{0}]", 0));
-    vkx::setDebugName(*pDevice, commandQueueTransfer, fmt::format("Transfer [{0}]", 0));
+  //  vkx::setDebugName(*pDevice, commandQueueCompute,  fmt::format("Compute  [{0}]", 0));
+ //   vkx::setDebugName(*pDevice, commandQueueTransfer, fmt::format("Transfer [{0}]", 0));
 
     std::vector<vk::UniqueQueryPool> queryPools;
     for (size_t index = 0; index < FRAMES_IN_FLIGHT; index++) {
@@ -1195,6 +1216,7 @@ int main(int argc, char* argv[]) {
     float GPUFrameTime = 0.0f;
 
     while (!glfwWindowShouldClose(pWindow.get())) {
+
         auto const timestampT0 = std::chrono::high_resolution_clock::now();
 
         glfwPollEvents();
@@ -1409,12 +1431,10 @@ int main(int argc, char* argv[]) {
         std::fwrite(std::data(cacheData), sizeof(uint8_t), std::size(cacheData), pFile.get());
     }
   
-
     pDevice->waitIdle();
-    
-
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
     ImGui::DestroyContext();
+    glfwTerminate();
 }
