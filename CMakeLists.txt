@@ -39,9 +39,12 @@ include_directories(PUBLIC "3rd-party/implot/include")
 include_directories(PUBLIC "3rd-party/smolv/include")
 include_directories(PUBLIC "3rd-party/spirv/include")
 include_directories(PUBLIC "3rd-party/vulkan/include")
+include_directories(PUBLIC "source/HAL/interface")
+
 
 add_compile_definitions(${GLOBAL_COMPILE_DEFINITIONS})
 add_subdirectory(3rd-party)
+add_subdirectory(source/HAL)
 
 set_property(TARGET dxc    PROPERTY FOLDER 3rd-party)
 set_property(TARGET fmt    PROPERTY FOLDER 3rd-party)
@@ -52,14 +55,17 @@ set_property(TARGET implot PROPERTY FOLDER 3rd-party)
 set_property(TARGET smolv  PROPERTY FOLDER 3rd-party)
 set_property(TARGET spirv  PROPERTY FOLDER 3rd-party)
 set_property(TARGET vulkan PROPERTY FOLDER 3rd-party)
+##set_property(TARGET HAL    PROPERTY FOLDER HAL)
+
+
 
 set(SOURCE
     source/Main.cpp
 )
 
-source_group("source" FILES ${SOURCE})
+source_group("include" FILES ${INCLUDE})
+source_group("source" FILES  ${SOURCE})
 
-add_executable(Vulkan ${SOURCE})
-target_include_directories(Vulkan PRIVATE "include")
-target_link_libraries(Vulkan PRIVATE fmt glfw smolv vulkan imgui implot)
+add_executable(Vulkan ${INCLUDE} ${SOURCE})
+target_link_libraries(Vulkan PRIVATE fmt glfw smolv vulkan imgui implot HAL)
 ##add_custom_command(TARGET Vulkan POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:DXC_SPIRV_PATH"${CMAKE_CURRENT_BINARY_DIR}" COMMENT "Copy dll file to ${CMAKE_CURRENT_BINARY_DIR} directory" VERBATIM)
