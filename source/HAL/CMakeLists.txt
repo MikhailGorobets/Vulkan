@@ -4,9 +4,14 @@ project(HAL CXX)
 
 set(INCLUDE 
     include/AdapterImpl.hpp
+    include/CommandAllocatorImpl.hpp
+    include/CommandListImpl.hpp
+    include/CommandQueueImpl.hpp
     include/DeviceImpl.hpp
+    include/FenceImpl.hpp
     include/InstanceImpl.hpp
     include/SwapChainImpl.hpp
+  
 )
 
 set(INTERFACE 
@@ -26,7 +31,11 @@ set(INTERFACE
 
 set(SOURCE
     source/AdapterImpl.cpp
-    SOURCE/DeviceImpl.cpp
+    source/CommandAllocatorImpl.cpp
+    source/CommandListImpl.cpp
+    source/CommandQueueImpl.cpp
+    source/DeviceImpl.cpp   
+    source/FenceImpl.cpp    
     source/InstanceImpl.cpp
     source/SwapChainImpl.cpp
 )

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <HAL/Device.hpp>
+#include <HAL/Instance.hpp>
 #include <HAL/Adapter.hpp>
 #include <vulkan/vulkan_decl.h>
 

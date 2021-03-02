@@ -624,7 +624,6 @@ namespace HAL {
         std::vector<vk::Format>   m_AttachmentsFormat = {};
     };
 
- 
 }
 
 
@@ -663,7 +662,7 @@ int main(int argc, char* argv[]) {
         };   
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, *pHALAdapter, deviceCI);
     }
-
+  
     MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
     MemoryStatisticCPU memoryCPU;
    

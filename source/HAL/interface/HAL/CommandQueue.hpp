@@ -8,9 +8,11 @@ namespace HAL {
     public:
         class Internal;
     public:
-        auto Signal(Fence const& fence, std::optional<uint64_t> value = std::nullopt);
+        auto Signal(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
 
-        auto Wait(Fence const& fence, std::optional<uint64_t> value = std::nullopt);
+        auto Wait(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
+        
+        auto WaitIdle() const -> void;
   
         auto GetVkQueue() const -> vk::Queue;
     private:     
