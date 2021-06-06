@@ -571,7 +571,7 @@ int main(int argc, char* argv[]) {
 
     std::unique_ptr<HAL::Instance> pHALInstance; {
         HAL::InstanceCreateInfo instanceCI = {
-            .IsEnableValidationLayers = false
+            .IsEnableValidationLayers = true
         };  
         pHALInstance = std::make_unique<HAL::Instance>(instanceCI);  
     }
@@ -792,7 +792,6 @@ int main(int argc, char* argv[]) {
    // }
    //
    // 
-   // uint64_t fenceIndices[BUFFER_COUNT] = {};
 
     std::vector<std::unique_ptr<HAL::Fence>> fences;
     for(size_t index = 0; index < BUFFER_COUNT; index++) {
@@ -943,6 +942,9 @@ int main(int argc, char* argv[]) {
         //Acquire Image 
         pHALSwapChain->AcquireNextImage();
 
+        //Wait until the previous frame is finished
+        if (!fences[currentBufferIndex]->IsCompleted())        
+            fences[currentBufferIndex]->Wait(fences[currentBufferIndex]->GetExpectedValue());
 
         //Render pass
         //....
@@ -987,19 +989,15 @@ int main(int argc, char* argv[]) {
 
 
         //Signal and increment the fence value
-        uint64_t fenceValue = fences[currentBufferIndex]->Increment();
+
+        fences[currentBufferIndex]->Increment();
         pHALCommandQueue->Signal(*fences[currentBufferIndex]);
 
-        //Present
+        //Wait fence and Present
         pHALSwapChain->Present(*fences[currentBufferIndex]);        
 
-        //Wait until the previous frame is finished
-        if (!fences[currentBufferIndex]->IsCompleted())        
-            fences[currentBufferIndex]->Wait(fenceValue);
 
-         
-       
-       // pHALFence->Wait(); 
+
 
    //
    //     //------------------------------//

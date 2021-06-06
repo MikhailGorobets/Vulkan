@@ -51,13 +51,11 @@ namespace HAL {
 
     auto SwapChain::Internal::Present(Fence& fence) -> void {
         //TODO lock        
+        
+        uint64_t signalSemaphoreValues[] = { 0 };
+        uint64_t waitSemaphoreValues[] = { fence.GetExpectedValue() };
 
-        uint64_t fenceValue = fence.Increment();
-
-        uint64_t signalSemaphoreValues[] = { fence.GetExpectedValue(), 0 };
-        uint64_t waitSemaphoreValues[] = { fence.GetCompletedValue() };
-
-        vk::Semaphore signalSemaphores[] = { fence.GetVkSemaphore(), *m_SwapChainSemaphoresFinished[m_CurrentBufferIndex] }; 
+        vk::Semaphore signalSemaphores[] = { *m_SwapChainSemaphoresFinished[m_CurrentBufferIndex] }; 
         vk::Semaphore waitSemahores[] = { fence.GetVkSemaphore() };
         
         vk::PipelineStageFlags stageMask[] = { vk::PipelineStageFlagBits::eBottomOfPipe };
