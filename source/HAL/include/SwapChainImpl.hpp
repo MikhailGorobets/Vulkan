@@ -8,23 +8,15 @@
 namespace HAL {
     class SwapChain::Internal {
     public:
-        struct SynchronizationInfo {
-            vk::Semaphore SemaphoresAvailable;
-            vk::Semaphore SemaphoresFinished;
-            vk::Fence     FenceCmdBufExecuted;
-        };
-    public:
         Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
         
         ~Internal();
 
-        auto AcquireNextImage()->uint32_t;
+        auto AcquireNextImage() -> void;
         
-        auto Present() -> void;
+        auto Present(Fence& fence) -> void;
           
-        auto Resize(uint32_t width, uint32_t height) -> void;
-        
-        auto GetSyncInfo() -> SynchronizationInfo;
+        auto Resize(uint32_t width, uint32_t height) -> void;     
 
         auto GetFormat() const -> vk::Format { return m_SurfaceFormat.format; }
 
@@ -32,7 +24,7 @@ namespace HAL {
 
         auto GetCurrentImageView() const -> vk::ImageView { return *m_SwapChainImageViews[m_CurrentImageIndex]; };
         
-        auto GetVkSwapChain() const -> vk::SwapchainKHR { return *m_pSwapChain; }
+        auto GetSwapChain() const -> vk::SwapchainKHR { return *m_pSwapChain; }
 
     private:
         auto CreateSurface() -> void;
@@ -67,7 +59,6 @@ namespace HAL {
         
         std::vector<vk::UniqueSemaphore> m_SwapChainSemaphoresAvailable = {};
         std::vector<vk::UniqueSemaphore> m_SwapChainSemaphoresFinished = {};
-        std::vector<vk::UniqueFence>     m_SwapChainFences = {};
         
         bool m_IsVSyncEnabled = {};
         bool m_IsSRGBEnabled = {};             

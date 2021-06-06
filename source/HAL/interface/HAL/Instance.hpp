@@ -12,10 +12,15 @@ namespace HAL {
     class Instance {
     public:
         class Internal;
-    public:    
+    public:     
         Instance(InstanceCreateInfo const& createInfo);
 
+        ~Instance();
+
         auto GetVkInstance() const -> vk::Instance;
+
+        auto GetAdapters() const -> std::vector<HAL::Adapter> const&;
+
     private:    
         Internal_Ptr<Internal, InternalSize_Instance> m_pInternal;   
     };

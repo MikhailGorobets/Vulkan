@@ -11,6 +11,7 @@
 
 #include <optional>
 
+
 #define KILOBYTES(x) (static_cast<uint64_t>(x) << 10ULL)
 #define MEGABYTES(x) (static_cast<uint64_t>(x) << 20ULL)
 #define GIGABYTES(x) (static_cast<uint64_t>(x) << 30ULL)
@@ -20,7 +21,7 @@ namespace std {
     template <class T>
     inline void hash_combine(std::size_t& seed, const T& v) {
         std::hash<T> hasher;
-        seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
+        seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     }
 }
 
@@ -57,7 +58,7 @@ namespace vkx {
         return {};
     }
     
-    inline [[nodiscard]]  auto selectPhysicalDevice(std::vector<vk::PhysicalDevice> const& physicalDevices, uint32_t ID) -> std::optional<vk::PhysicalDevice> {
+    inline [[nodiscard]] auto selectPhysicalDevice(std::vector<vk::PhysicalDevice> const& physicalDevices, uint32_t ID) -> std::optional<vk::PhysicalDevice> {
         auto isGraphicsAndComputeQueueSupported = [](vk::PhysicalDevice const& adapter) {    
             for (const auto& queueFamilyProps : adapter.getQueueFamilyProperties()) {
                 if ((queueFamilyProps.queueFlags & vk::QueueFlagBits::eGraphics) && (queueFamilyProps.queueFlags & vk::QueueFlagBits::eCompute))               
@@ -110,29 +111,23 @@ namespace vkx {
 namespace vkx {
 
     inline [[nodiscard]] auto isInstanceLayerAvailable(std::vector<vk::LayerProperties> const& layers, const char* name) -> bool {
-        for (auto const& e : layers) {
-            if (std::strcmp(e.layerName, name) == 0) {
-                return true;
-            }
-        }
+        for (auto const& e : layers) 
+            if (std::strcmp(e.layerName, name) == 0) 
+                return true;           
         return false;
     }
     
     inline [[nodiscard]] auto isInstanceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, const char* name) -> bool {
-        for (auto const& e : extensions) {
-            if (std::strcmp(e.extensionName, name) == 0) {
-                return true;
-            }
-        }
+        for (auto const& e : extensions) 
+            if (std::strcmp(e.extensionName, name) == 0) 
+                return true;        
         return false;
     }
 
     inline [[nodiscard]] auto isDeviceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, const char* name) -> bool {
-        for (auto const& e : extensions) {
-            if (std::strcmp(e.extensionName, name) == 0) {
-                return true;
-            }
-        }
+        for (auto const& e : extensions) 
+            if (std::strcmp(e.extensionName, name) == 0) 
+                return true;            
         return false;
     }
 }

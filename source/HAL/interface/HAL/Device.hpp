@@ -3,26 +3,29 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-
     struct DeviceCreateInfo {    
-
+      
     };
     
     class Device {
     public:
         class Internal;
-    public:
-        Device(Instance const& pInstance, Adapter const& pAdapter, DeviceCreateInfo const& createInfo);
-        
-        auto GetTransferCommandQueue() const -> TransferCommandQueue const&;
-        
-        auto GetComputeCommandQueue()  const -> ComputeCommandQueue const&;  
+    public:                 
+        Device(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo);
 
-        auto GetGraphicsCommandQueue() const -> GraphicsCommandQueue const&;
+        ~Device();
+        
+        auto GetTransferCommandQueue() const -> const TransferCommandQueue*;
+        
+        auto GetComputeCommandQueue()  const -> const ComputeCommandQueue*;  
+
+        auto GetGraphicsCommandQueue() const -> const GraphicsCommandQueue*;
       
-        auto Flush() -> void;
+        auto WaitIdle() -> void;
          
         auto GetVkDevice() const -> vk::Device;
+
+        auto GetVkPipelineCache() const -> vk::PipelineCache;
 
         auto GetVkPhysicalDevice() const -> vk::PhysicalDevice;
 

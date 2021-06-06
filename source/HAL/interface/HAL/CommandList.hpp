@@ -3,7 +3,6 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-
     class CommandList {
     public:
         class Internal;
@@ -29,5 +28,4 @@ namespace HAL {
     public:
         GraphicsCommandList(CommandAllocator& allocator);
     };
-    
 }

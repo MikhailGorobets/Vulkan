@@ -3,7 +3,6 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-
     class CommandAllocator {
     public:
         class Internal;

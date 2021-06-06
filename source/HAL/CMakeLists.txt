@@ -7,9 +7,11 @@ set(INCLUDE
     include/CommandAllocatorImpl.hpp
     include/CommandListImpl.hpp
     include/CommandQueueImpl.hpp
+    include/ComPtr.hpp
     include/DeviceImpl.hpp
     include/FenceImpl.hpp
     include/InstanceImpl.hpp
+    include/ShaderCompilerImpl.hpp
     include/SwapChainImpl.hpp
   
 )
@@ -19,9 +21,8 @@ set(INTERFACE
     interface/HAL/Device.hpp
     interface/HAL/Instance.hpp
     interface/HAL/InternalPtr.hpp
-    interface/HAL/ComPtr.hpp
     interface/HAL/SwapChain.hpp
-    interface/HAL/Compiler.hpp
+    interface/HAL/ShaderCompiler.hpp
     interface/HAL/Fence.hpp
     interface/HAL/CommandQueue.hpp
     interface/HAL/CommandList.hpp
@@ -37,6 +38,7 @@ set(SOURCE
     source/DeviceImpl.cpp   
     source/FenceImpl.cpp    
     source/InstanceImpl.cpp
+    source/ShaderCompilerImpl.cpp
     source/SwapChainImpl.cpp
 )
 

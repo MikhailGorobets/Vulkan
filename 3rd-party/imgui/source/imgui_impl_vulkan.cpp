@@ -319,7 +319,9 @@ private:
             std::memcpy(allocationInfo.pMappedData, pData, 4 * sizeof(uint8_t) * textureWidth * textureHeight);
         }
 
-        uint32_t indexQueueFamily = vkx::getIndexQueueFamilyGraphicsInfo(adapter)->queueIndex;
+        auto queueFamilyProperties = adapter.getQueueFamilyProperties();
+
+        uint32_t indexQueueFamily = vkx::getIndexQueueFamilyGraphicsInfo(queueFamilyProperties)->queueIndex;
         vk::UniqueCommandPool pCmdPool;
         vk::UniqueCommandBuffer pCmdBuffer;
         {

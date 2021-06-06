@@ -25,16 +25,17 @@ namespace HAL {
         m_ExtensionProperties = vk::enumerateInstanceExtensionProperties();
 
         if (m_ApiVersion < VK_VERSION_1_2) {
-            fmt::print("Error: Vulkan 1.2 minimum supported version\n");
+            fmt::print("Error: Vulkan 1.2 minimum supported version \n");
         }
 
         std::vector<const char*> instanceLayers;
         if (createInfo.IsEnableValidationLayers) {
             for (size_t index = 0; index < _countof(INSTANCE_LAYERS); index++) {
-                if (vkx::isInstanceLayerAvailable(m_LayerProperties, INSTANCE_LAYERS[index]))        
+                if (vkx::isInstanceLayerAvailable(m_LayerProperties, INSTANCE_LAYERS[index])) {
                     instanceLayers.push_back(INSTANCE_LAYERS[index]);
-                continue;
-                fmt::print("Warning: Required Vulkan Instance Layer {0} not supported\n", INSTANCE_LAYERS[index]);
+                    continue;
+                }                     
+                fmt::print("Warning: Required Vulkan Instance Layer {0} not supported \n", INSTANCE_LAYERS[index]);
             }
         }
        
@@ -44,7 +45,7 @@ namespace HAL {
                 instanceExtensions.push_back(INSTANCE_EXTENSION[index]);
                 continue;
             }
-            fmt::print("Warning: Required Vulkan Instance Extension {0} not supported\n", INSTANCE_EXTENSION[index]);
+            fmt::print("Warning: Required Vulkan Instance Extension {0} not supported \n", INSTANCE_EXTENSION[index]);
         }
 
         vk::ApplicationInfo applicationInfo = {
@@ -65,16 +66,24 @@ namespace HAL {
         m_pInstance = vk::createInstanceUnique(instanceCI);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_pInstance);
 
-        m_PhysicalDevices = m_pInstance->enumeratePhysicalDevices();
+        for(auto const& physicalDevice: m_pInstance->enumeratePhysicalDevices()) {     
+            auto adapter = HAL::Adapter::Internal(physicalDevice);    
+            m_Adapters.push_back(*reinterpret_cast<HAL::Adapter*>(&adapter));
+        }
+          
     }    
 }
 
 namespace HAL {
-
     Instance::Instance(InstanceCreateInfo const& createInfo) : m_pInternal(createInfo) {}
+
+    Instance::~Instance() = default;
 
     auto Instance::GetVkInstance() const -> vk::Instance {
         return m_pInternal->GetInstance();
     }
 
+    auto Instance::GetAdapters() const -> std::vector<HAL::Adapter> const& {
+        return m_pInternal->GetAdapters();
+    }
 }

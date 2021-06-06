@@ -1,7 +1,5 @@
 #include <vulkan/vulkan_decl.h>
 
-#include <dxc/dxcapi.use.h>
-
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_vulkan.h>
@@ -28,14 +26,12 @@
 #include <HAL/Instance.hpp>
 #include <HAL/Device.hpp>
 #include <HAL/SwapChain.hpp>
+#include <HAL/Fence.hpp>
 #include <HAL/CommandQueue.hpp>
-#include <HAL/CommandAllocator.hpp>
-#include <HAL/CommandList.hpp>
+//#include <HAL/CommandAllocator.hpp>
+//#include <HAL/CommandList.hpp>
+//#include <HAL/ShaderCompiler.hpp>
 
-#include "HAL/include/AdapterImpl.hpp"
-#include "HAL/include/InstanceImpl.hpp"
-#include "HAL/include/DeviceImpl.hpp"
-#include "HAL/include/SwapChainImpl.hpp"
 
 struct ScrollingBuffer {
     int32_t MaxSize = 4096;
@@ -195,227 +191,30 @@ class MemoryStatisticCPU {
 };
 
 
-namespace vkx {
 
- 
-
-
-    class Compiler;
-    class CompileResult {
-        friend Compiler;
-        CompileResult(std::vector<uint32_t>&& data) : m_Data(data) {}
-
-    public:
-        [[nodiscard]] auto data() const -> const uint32_t* {
-            return std::data(m_Data);
-        }
-        [[nodiscard]] auto size() const -> uint32_t {
-            return static_cast<uint32_t>(std::size(m_Data) * sizeof(uint32_t));
-        }
-        
-        [[nodiscard]] auto operator[](size_t index) const -> uint32_t { 
-            return this->data()[index];
-        }
-
-    private:
-        std::vector<uint32_t> m_Data;
-    };
-
-    struct CompilerCreateInfo {
-        uint32_t shaderModelMajor = 6;
-        uint32_t shaderModelMinor = 5;
-        uint32_t HLSLVersion = 2018;
-    };
-
-    //class CompilerFactory {
-    //public:
-    //    auto createCompiler(CompilerCreateInfo const& compilerCreateInfo) -> Compiler {
-    //        std::scoped_lock<std::mutex> lock(m_Mutex);
-    //
-    //       // throwIfFailed(m_DxcLoader.Initialize());
-    //       // throwIfFailed(m_DxcLoader.CreateInstance(CLSID_DxcUtils, &m_pDxcUtils));
-    //       // throwIfFailed(m_DxcLoader.CreateInstance(CLSID_DxcCompiler, &m_pDxcCompiler));
-    //       // throwIfFailed(m_pDxcUtils->CreateDefaultIncludeHandler(&m_pDxcIncludeHandler));
-    //
-    //
-    //    }
-    //    auto destroyCompiler(Compiler handle) -> void {
-    //
-    //    }
-    //private:
-    //    std::mutex m_Mutex;
-    //};
-
-    class Compiler {
-    public:
-        Compiler(CompilerCreateInfo const& compilerCreateInfo) {
-
-            m_CompilerDesc = compilerCreateInfo;
-            throwIfFailed(m_DxcLoader.Initialize());
-            throwIfFailed(m_DxcLoader.CreateInstance(CLSID_DxcUtils, &m_pDxcUtils));
-            throwIfFailed(m_DxcLoader.CreateInstance(CLSID_DxcCompiler, &m_pDxcCompiler));
-            throwIfFailed(m_pDxcUtils->CreateDefaultIncludeHandler(&m_pDxcIncludeHandler));
-
-        }
-
-        [[nodiscard]] auto compileFromString(std::wstring const& data, std::wstring const& entryPoint, vk::ShaderStageFlagBits target, std::vector<std::wstring> const& defines) const -> CompileResult {
-            ComPtr<IDxcBlobEncoding> pDxcSource;
-            throwIfFailed(m_pDxcUtils->CreateBlob(std::data(data), static_cast<uint32_t>(std::size(data)), CP_UTF8, &pDxcSource));
-            return compileShaderBlob(pDxcSource, entryPoint, target, defines);
-        }
-
-        [[nodiscard]] auto compileFromFile(std::wstring const& path, std::wstring const& entryPoint, vk::ShaderStageFlagBits target, std::vector<std::wstring> const& defines) const -> CompileResult {
-            ComPtr<IDxcBlobEncoding> pDxcSource;
-            throwIfFailed(m_pDxcUtils->LoadFile(path.c_str(), nullptr, &pDxcSource));
-            return compileShaderBlob(pDxcSource, entryPoint, target, defines);
-        }
-
-    private:
-        [[nodiscard]] auto compileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, vk::ShaderStageFlagBits target, std::vector<std::wstring> const& defines) const -> CompileResult {
-
-            auto const getShaderStage = [](vk::ShaderStageFlagBits target) -> std::wstring {
-                switch (target) {
-                case vk::ShaderStageFlagBits::eVertex:                 return L"vs";
-                case vk::ShaderStageFlagBits::eGeometry:               return L"gs";
-                case vk::ShaderStageFlagBits::eTessellationControl:    return L"hs";
-                case vk::ShaderStageFlagBits::eTessellationEvaluation: return L"ds";
-                case vk::ShaderStageFlagBits::eFragment:               return L"ps";
-                case vk::ShaderStageFlagBits::eCompute:                return L"cs";
-                default: vk::throwResultException(vk::Result::eErrorUnknown, "Unknown shader type");
-                }
-            };
-
-            const std::wstring shaderProfile = fmt::format(L"{0}_{1}_{2}", getShaderStage(target), m_CompilerDesc.shaderModelMajor, m_CompilerDesc.shaderModelMinor);
-            const std::wstring shaderVersion = std::to_wstring(m_CompilerDesc.HLSLVersion);
-
-            std::vector<LPCWSTR> dxcArguments;
-            dxcArguments.insert(std::end(dxcArguments), { L"-E",  entryPoint.c_str() });
-            dxcArguments.insert(std::end(dxcArguments), { L"-T",  shaderProfile.c_str() });
-            dxcArguments.insert(std::end(dxcArguments), { L"-HV", shaderVersion.c_str() });
-
-            dxcArguments.insert(std::end(dxcArguments), { L"-spirv", L"-fspv-reflect", L"-fspv-target-env=vulkan1.1", L"-enable-16bit-types" });
-#ifdef  _DEBUG
-            dxcArguments.insert(std::end(dxcArguments), { L"-fspv-debug=file", L"-fspv-debug=source",  L"-fspv-debug=line",  L"-fspv-debug=tool" });
-#endif
-
-            for (auto const& e : defines)
-                dxcArguments.insert(std::end(dxcArguments), { L"-D", e.c_str() });
-
-            DxcText dxcBuffer = {};
-            dxcBuffer.Ptr = pDxcBlob->GetBufferPointer();
-            dxcBuffer.Size = pDxcBlob->GetBufferSize();
-
-            ComPtr<IDxcResult> pDxcCompileResult;
-            throwIfFailed(m_pDxcCompiler->Compile(&dxcBuffer, std::data(dxcArguments), static_cast<uint32_t>(std::size(dxcArguments)), m_pDxcIncludeHandler, IID_PPV_ARGS(&pDxcCompileResult)));
-
-            ComPtr<IDxcBlobUtf8> pDxcErrors;
-            throwIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pDxcErrors), nullptr));
-            if (pDxcErrors && pDxcErrors->GetStringLength() > 0)
-                fmt::print("{}\n", static_cast<const char*>(pDxcErrors->GetBufferPointer()));
-
-
-            ComPtr<IDxcBlob> pDxcShaderCode;
-            throwIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxcShaderCode), nullptr));
-
-            auto spirv = std::vector<uint32_t>(static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()), static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()) + pDxcShaderCode->GetBufferSize() / sizeof(uint32_t));
-            return CompileResult(std::move(spirv));
-        }
-
-    private:
-        dxc::DxcDllSupport         m_DxcLoader;
-        ComPtr<IDxcUtils>          m_pDxcUtils;
-        ComPtr<IDxcCompiler3>      m_pDxcCompiler;
-        ComPtr<IDxcIncludeHandler> m_pDxcIncludeHandler;
-        CompilerCreateInfo         m_CompilerDesc;
-    };
-}
-
-
-namespace vkx {
-
-    struct SpirvShaderResourceAttributes {
-        vk::DescriptorType descriptorType;
-        uint32_t           descriptorCount;
-        std::string        descriptorName;
-    };
-
-    struct SpirvShaderStageInputAttributes {
-
-    };
-
-    struct SpirvShaderResources {
-
-    };
-
-}
-
-
-
-//auto GenerateCPPFromShaderModule(std::string const& fileName, std::wstring const& path, std::wstring const& kernel, vk::ShaderStageFlagBits stage, std::vector<std::wstring> const& defines) {
-//    vkx::Compiler compiler(vkx::CompilerCreateInfo{.shaderModelMajor = 6, .shaderModelMinor = 5, .HLSLVersion = 2018});
-//    auto const spirv = compiler.compileFromFile(path, kernel, stage, defines);
+//namespace vkx {
 //
-//
-//    auto const GetShaderStage = [](vk::ShaderStageFlagBits target) -> const char* {
-//        switch (target) {
-//        case vk::ShaderStageFlagBits::eVertex:
-//            return "VertexShader_SPIRV";
-//        case vk::ShaderStageFlagBits::eGeometry:
-//            return "GeometryShader_SPIRV";
-//        case vk::ShaderStageFlagBits::eTessellationControl:
-//            return "TessellationControlhader_SPIRV";
-//        case vk::ShaderStageFlagBits::eTessellationEvaluation:
-//            return "TessellationEvaluationShader_SPIRV";
-//        case vk::ShaderStageFlagBits::eFragment:
-//            return "FragmentShader_SPIRV";
-//        case vk::ShaderStageFlagBits::eCompute:
-//            return "ComputeShader_SPIRV";
-//        default:
-//            vk::throwResultException(vk::Result::eErrorUnknown, "Unknown shader type");
-//        }
+//    struct SpirvShaderResourceAttributes {
+//        vk::DescriptorType descriptorType;
+//        uint32_t           descriptorCount;
+//        std::string        descriptorName;
 //    };
 //
-//    std::unique_ptr<FILE, decltype(&fclose)> pFile(fopen(fileName.c_str(), "w"), fclose);
-// 
+//    struct SpirvShaderStageInputAttributes {
 //
-//    fprintf(pFile.get(), "static constexpr uint32_t %s[] =", GetShaderStage(stage));
-//    fprintf(pFile.get(), "\n{", GetShaderStage(stage));
+//    };
 //
-//    for (size_t index = 0; index < spirv.size() / 4; index++) {
-//        if (index % 8 == 0)
-//            fprintf(pFile.get(), "\n    ");
-//        fprintf(pFile.get(), "0x%08x,", spirv[index]);      
-//    }
-// 
-//    fprintf(pFile.get(), "\n};\n", GetShaderStage(stage));
+//    struct SpirvShaderResources {
+//
+//    };
+//
 //}
 //
- 
 
 
-        
-
+       
 namespace HAL {
     
-    class ShaderCompiler {
-    public:
-        
-    };
-
-
-
-
-    
-
-    class Buffer {
-
-    };
-
-    class Texture {
-
-    };
-
-
     struct RenderPassAttachmentInfo {
         vk::ImageView       ImageView = {};
         vk::ImageUsageFlags ImageUsage = {};
@@ -441,9 +240,9 @@ namespace HAL {
     };
    
 
-    class Allocator {
+    class MemoryAllocator {
     public:
-        Allocator(Instance const& instance, Device const& device, AllocatorCreateInfo const& createInfo) {
+        MemoryAllocator(Instance const& instance, Device const& device, AllocatorCreateInfo const& createInfo) {
             vma::DeviceMemoryCallbacks deviceMemoryCallbacks = {
                 .pfnAllocate = createInfo.DeviceMemoryCallbacks.pfnAllocate,
                 .pfnFree     = createInfo.DeviceMemoryCallbacks.pfnFree,
@@ -493,11 +292,141 @@ namespace HAL {
     private:
         vma::UniqueAllocator m_pAllocator;
     };
+//
+//    
+//
+//    
+//    struct BufferCreateInfo {
+//
+//    };
+//
+//    struct TextureCreateInfo {
+//
+//    };    
+//
+//    class Buffer {
+//    public:
+//        Buffer(MemoryAllocator const& allocator, BufferCreateInfo const& createInfo) {
+//
+//        }
+//
+//    private:
+//        vma::UniqueAllocation m_pAllocation;
+//        vk::UniqueBuffer      m_pBuffer;
+//    };
+//
+//    class Texture {
+//    public:
+//        Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) {
+//
+//        }
+//
+//    private:
+//        vma::UniqueAllocation m_pAllocation;
+//        vk::UniqueImage       m_pImage;
+//    };
+//
+//
+//    struct ShaderByteCode {
+//        const char* pName = {};
+//        const void* pData = {};
+//        uint64_t    Size  = {};      
+//    };
+//
+//    struct GraphicsPipelineCreateInfo {
+//        ShaderByteCode VS;
+//        ShaderByteCode PS;
+//    };
+//
+//    struct ComputePipelineCreateInfo {
+//        ShaderByteCode CS;
+//    };
+//
+//    class PipelineLayout {
+//
+//    private:
+//       
+//    };
 
+   // class GraphicsPipeline {
+   // public:
+   //     GraphicsPipeline(Device const& device, RenderPass const& renderPass, GraphicsPipelineCreateInfo const& createInfo) {
+   //         
+   //         vk::UniqueShaderModule vs = device.GetVkDevice().createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = createInfo.VS.Size, .pCode = reinterpret_cast<const uint32_t*>(createInfo.VS.pData) });
+   //         vk::UniqueShaderModule fs = device.GetVkDevice().createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = createInfo.PS.Size, .pCode = reinterpret_cast<const uint32_t*>(createInfo.PS.pData) });
+   //
+   //         //vkx::setDebugName(device.GetVkDevice(), *vs, "[VS] WaveFront");
+   //         //vkx::setDebugName(device.GetVkDevice(), *fs, "[FS] WaveFront");
+   //       
+   //         vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
+   //             vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = createInfo.VS.pName },
+   //             vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = createInfo.PS.pName },
+   //         };
+   //         
+   //         vk::PipelineViewportStateCreateInfo viewportStateCI = {
+   //             .viewportCount = 1,        
+   //             .scissorCount = 1
+   //         };
+   //
+   //         vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
+   //             .vertexBindingDescriptionCount  = 0,
+   //             .vertexAttributeDescriptionCount = 0
+   //         };
+   //         
+   //         vk::DynamicState dynamicStates[] = {
+   //             vk::DynamicState::eScissor,
+   //             vk::DynamicState::eViewport
+   //         };
+   //
+   //         vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
+   //             .dynamicStateCount = _countof(dynamicStates),
+   //             .pDynamicStates = dynamicStates
+   //         };
+   //
+   //         vk::GraphicsPipelineCreateInfo pipelineCI = {
+   //            .stageCount = _countof(shaderStagesCI),
+   //            .pStages = shaderStagesCI,
+   //            .pVertexInputState = &vertexInputStateCI,
+   //            .pInputAssemblyState = &inputAssemblyStateCI,
+   //            .pViewportState = &viewportStateCI,
+   //            .pRasterizationState = &rasterizationStateCI,
+   //            .pMultisampleState = &multisampleStateCI,
+   //            .pDepthStencilState = &depthStencilStateCI,
+   //            .pColorBlendState = &colorBlendStateCI,
+   //            .pDynamicState = &dynamicStateCI,
+   //            .layout = *pPipelineLayout,
+   //            .renderPass = renderPass.GetVkRenderPass(),
+   //         };
+   //
+   //         std::tie(std::ignore, m_pPipeline) = device.GetVkDevice().createGraphicsPipelineUnique(device.GetVkPipelineCache(), pipelineCI).asTuple();
+   //         //vkx::setDebugName(pDevice, *pPipeline, "WaveFront");      
+   //         //fmt::print("Flags: {} Duration: {}s\n", vk::to_string(creationFeedback.flags), creationFeedback.duration / 1E9f);     
+   // 
+   //     }
+   // private:
+   //     vk::UniquePipeline m_pPipeline;
+   // };
+   //
+   // class ComputePipeline {
+   // public:
+   //     ComputePipeline(ComputePipelineCreateInfo const& createInfo) {
+   //
+   //     }
+   // private:
+   //     vk::UniquePipeline m_pPipeline;
+   // };
+   //
+   // struct RenderPassCreateInfo {
+   // private:
+   //
+   //
+   // };
+   //
+   //
     class RenderPass {
     public:
-        RenderPass(vk::Device pDevice, vk::RenderPassCreateInfo const& createInfo){        
-            m_pRenderPass = pDevice.createRenderPassUnique(createInfo); 
+        RenderPass(Device const& pDevice, vk::RenderPassCreateInfo const& createInfo){        
+            m_pRenderPass = pDevice.GetVkDevice().createRenderPassUnique(createInfo); 
             for(size_t index = 0; index < createInfo.attachmentCount; index++)
                 m_AttachmentsFormat.push_back(createInfo.pAttachments[index].format);      
         }    
@@ -525,7 +454,7 @@ namespace HAL {
                 frameBufferImageViews.push_back(beginInfo.pAttachments[index].ImageView);
                 frameBufferClearValues.push_back(beginInfo.pAttachments[index].ClearValue);
             }
-
+   
             FrameBufferCacheKey key = { std::move(frameBufferAttanchments), beginInfo.FramebufferWidth, beginInfo.FramebufferHeight, beginInfo.FramebufferLayers };           
          
             if (m_FrameBufferCache.find(key) == m_FrameBufferCache.end()){
@@ -542,9 +471,7 @@ namespace HAL {
                          .attachmentImageInfoCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
                          .pAttachmentImageInfos = std::data(key.FramebufferAttachment)
                      }
-                 };       
-
-                                  
+                 };                              
                  m_FrameBufferCache.emplace(key, m_pRenderPass.getOwner().createFramebufferUnique(framebufferCI.get<vk::FramebufferCreateInfo>()));        
             }
            
@@ -561,7 +488,6 @@ namespace HAL {
                     .pAttachments = std::data(frameBufferImageViews)
                 }
             };
-
             cmdBuffer.beginRenderPass(renderPassBeginInfo.get<vk::RenderPassBeginInfo>(), supbassContents);    
         }
     
@@ -604,7 +530,7 @@ namespace HAL {
                 std::hash_combine(hash, key.Width);
                 std::hash_combine(hash, key.Height);
                 std::hash_combine(hash, key.Layers);
-
+   
                 for(size_t index = 0; index < std::size(key.FramebufferAttachment); index++) {
                     std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].usage));
                     std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].pViewFormats[0]));
@@ -617,15 +543,13 @@ namespace HAL {
         };
         
         using FrameBufferCache = std::unordered_map<FrameBufferCacheKey, vk::UniqueFramebuffer, FrameBufferCacheKeyHash>;   
-
+   
     private:
         FrameBufferCache          m_FrameBufferCache = {};
         vk::UniqueRenderPass      m_pRenderPass = {};
         std::vector<vk::Format>   m_AttachmentsFormat = {};
     };
-
 }
-
 
 
 int main(int argc, char* argv[]) {
@@ -644,39 +568,19 @@ int main(int argc, char* argv[]) {
     } GLFW;
    
     std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> pWindow(glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr), glfwDestroyWindow);
-  
+
     std::unique_ptr<HAL::Instance> pHALInstance; {
-        HAL::InstanceCreateInfo instanceCI =  {
-            .IsEnableValidationLayers = true
-        };    
-        pHALInstance = std::make_unique<HAL::Instance>(instanceCI);
-    }
-    
-    std::unique_ptr<HAL::Adapter> pHALAdapter; {       
-        pHALAdapter = std::make_unique<HAL::Adapter>(*pHALInstance, 0);
+        HAL::InstanceCreateInfo instanceCI = {
+            .IsEnableValidationLayers = false
+        };  
+        pHALInstance = std::make_unique<HAL::Instance>(instanceCI);  
     }
        
     std::unique_ptr<HAL::Device> pHALDevice; {
         HAL::DeviceCreateInfo deviceCI = {
-            
+           
         };   
-        pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, *pHALAdapter, deviceCI);
-    }
-  
-    MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
-    MemoryStatisticCPU memoryCPU;
-   
-    std::unique_ptr<HAL::Allocator> pHALAllocator; {
-        HAL::AllocatorCreateInfo allocatorCI = {
-            .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget | vma::AllocatorCreateFlagBits::eExternallySynchronized,
-            .FrameInUseCount = BUFFER_COUNT,
-            .DeviceMemoryCallbacks = {
-                .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
-                .pfnFree     = MemoryStatisticGPU::GPUFree,
-                .pUserData   = &memoryGPU,
-            }
-        };
-        pHALAllocator = std::make_unique<HAL::Allocator>(*pHALInstance, *pHALDevice, allocatorCI);
+        pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }
     
     std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
@@ -691,23 +595,39 @@ int main(int argc, char* argv[]) {
         pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
 
-    std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
+    MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
+    MemoryStatisticCPU memoryCPU;
+    
 
+    std::unique_ptr<HAL::MemoryAllocator> pHALAllocator; {
+        HAL::AllocatorCreateInfo allocatorCI = {
+            .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget,
+            .FrameInUseCount = BUFFER_COUNT,
+            .DeviceMemoryCallbacks = {
+                .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
+                .pfnFree     = MemoryStatisticGPU::GPUFree,
+                .pUserData   = &memoryGPU,
+            }
+        };
+        pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
+    }
+
+    std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
             vk::AttachmentDescription{
-                .format = pHALSwapChain->GetFormat(),
+                .format = vk::Format::eR8G8B8A8Srgb,
                 .samples = vk::SampleCountFlagBits::e1,
-                .loadOp = vk::AttachmentLoadOp::eDontCare,
+                .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
                 .initialLayout = vk::ImageLayout::eUndefined,
                 .finalLayout = vk::ImageLayout::ePresentSrcKHR
             } 
         };
-
+   
         vk::AttachmentReference colorAttachmentReferencePass0[] = {
             vk::AttachmentReference{ .attachment = 0, .layout = vk::ImageLayout::eColorAttachmentOptimal },
         };
-
+   
         vk::SubpassDescription subpassDescriptions[] = {
             vk::SubpassDescription {
                 .pipelineBindPoint = vk::PipelineBindPoint::eGraphics,
@@ -716,225 +636,112 @@ int main(int argc, char* argv[]) {
                 .pDepthStencilAttachment = nullptr
             }        
         };
-
+   
         vk::RenderPassCreateInfo renderPassCI = {
             .attachmentCount = _countof(attachments),
             .pAttachments = attachments,
             .subpassCount = _countof(subpassDescriptions),
             .pSubpasses = subpassDescriptions         
         };
-        pHALRenderPass = std::make_unique<HAL::RenderPass>(pHALDevice, renderPassCI);
+        pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
 
-    
-    auto pDevice = pHALDevice->GetVkDevice();
-    auto pAllocator = pHALAllocator->GetVmaAllocator();
+    auto pCommandPool = pHALDevice->GetVkDevice().createCommandPoolUnique(vk::CommandPoolCreateInfo { .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = 0 });
 
-    vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
-        vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
-            vk::DescriptorSetLayoutBinding {
-                .binding = 0,
-                .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
-                .descriptorCount = 1,
-                .stageFlags = vk::ShaderStageFlagBits::eAllGraphics
-            }   
-        };
+    auto pCommandBuffer = pHALDevice->GetVkDevice().allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{ .commandPool = *pCommandPool, .commandBufferCount = BUFFER_COUNT });
 
-        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
-            .bindingCount = _countof(descriptorSetLayoutBindings),
-            .pBindings = descriptorSetLayoutBindings
-        };
-
-        pDescriptorSetLayout = pDevice.createDescriptorSetLayoutUnique(descriptorSetLayoutCI);
-        vkx::setDebugName(pDevice, *pDescriptorSetLayout, "");
-    }
-
-    vk::UniquePipelineLayout pPipelineLayout; {
-        vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
-            .setLayoutCount = 1,
-            .pSetLayouts = pDescriptorSetLayout.getAddressOf(),
-            .pushConstantRangeCount = 0
-        };
-        pPipelineLayout = pDevice.createPipelineLayoutUnique(pipelineLayoutCI);
-        vkx::setDebugName(pDevice, *pPipelineLayout, "");  
-    }
-
-    vk::UniquePipelineCache pPipelineCache;{
-        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);     
-        std::vector<uint8_t> cacheData{};
-
-        if (pFile.get() != nullptr) {         
-            std::fseek(pFile.get(), 0, SEEK_END);
-            size_t size = std::ftell(pFile.get());
-            std::fseek(pFile.get(), 0, SEEK_SET);
-            cacheData.resize(size);       
-            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
-        }
-    
-        vk::PipelineCacheCreateInfo pipelineCacheCI = {
-            .initialDataSize = std::size(cacheData),
-            .pInitialData = std::data(cacheData)
-        };
-
-        pPipelineCache = pDevice.createPipelineCacheUnique(pipelineCacheCI);
-        vkx::setDebugName(pDevice, *pPipelineCache, "");
-    }
-    
-    vk::UniquePipeline pPipeline; {
-        vkx::Compiler compiler(vkx::CompilerCreateInfo{ .shaderModelMajor = 6, .shaderModelMinor = 5, .HLSLVersion = 2018});
-
-        auto const spirvVS = compiler.compileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", vk::ShaderStageFlagBits::eVertex, {});
-        auto const spirvFS = compiler.compileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", vk::ShaderStageFlagBits::eFragment, {});
-     
-
-        vk::UniqueShaderModule vs = pDevice.createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = std::size(spirvVS), .pCode = reinterpret_cast<const uint32_t*>(std::data(spirvVS)) });
-        vk::UniqueShaderModule fs = pDevice.createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = std::size(spirvFS), .pCode = reinterpret_cast<const uint32_t*>(std::data(spirvFS)) });
-        vkx::setDebugName(pDevice, *vs, "[VS] WaveFront");
-        vkx::setDebugName(pDevice, *fs, "[FS] WaveFront");
-   
-        vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
-            vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = "VSMain" },
-            vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = "PSMain" },
-        };
-
-        vk::PipelineViewportStateCreateInfo viewportStateCI = {
-            .viewportCount = 1,        
-            .scissorCount = 1
-        };
-
-        vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCI = {
-            .topology = vk::PrimitiveTopology::eTriangleList,
-            .primitiveRestartEnable = false
-        };
-
-        vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
-            .vertexBindingDescriptionCount  = 0,
-            .vertexAttributeDescriptionCount = 0
-        };
-
-        vk::PipelineColorBlendAttachmentState colorBlendAttachments[] = {
-            vk::PipelineColorBlendAttachmentState{
-                .blendEnable = false,
-                .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-            }      
-        };
-
-        vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
-            .depthTestEnable = true,
-            .depthWriteEnable = false,
-            .depthCompareOp = vk::CompareOp::eLess,
-            .stencilTestEnable = false
-        };
-
-        vk::PipelineMultisampleStateCreateInfo multisampleStateCI = {
-            .rasterizationSamples = vk::SampleCountFlagBits::e1
-        };
-
-        vk::PipelineColorBlendStateCreateInfo colorBlendStateCI ={
-            .logicOpEnable = false,
-            .attachmentCount = _countof(colorBlendAttachments),
-            .pAttachments = colorBlendAttachments,
-        };
-
-        vk::PipelineRasterizationStateCreateInfo rasterizationStateCI = {
-            .depthClampEnable = false,
-            .rasterizerDiscardEnable = false,
-            .polygonMode = vk::PolygonMode::eFill,
-            .cullMode = vk::CullModeFlagBits::eNone,
-            .frontFace = vk::FrontFace::eClockwise,
-            .lineWidth = 1.0f
-        };
-
-        vk::DynamicState dynamicStates[] = {
-            vk::DynamicState::eScissor,
-            vk::DynamicState::eViewport
-        };
-
-        vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
-            .dynamicStateCount = _countof(dynamicStates),
-            .pDynamicStates = dynamicStates
-        };
-               
-        vk::PipelineCreationFeedbackEXT creationFeedback = {};
-        vk::PipelineCreationFeedbackEXT stageCreationFeedbacks[] = {
-            vk::PipelineCreationFeedbackEXT {},
-            vk::PipelineCreationFeedbackEXT {}
-        };
- 
-        vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineCreationFeedbackCreateInfoEXT> pipelineCI = {
-            vk::GraphicsPipelineCreateInfo {
-                .stageCount = _countof(shaderStagesCI),
-                .pStages = shaderStagesCI,
-                .pVertexInputState = &vertexInputStateCI,
-                .pInputAssemblyState = &inputAssemblyStateCI,
-                .pViewportState = &viewportStateCI,
-                .pRasterizationState = &rasterizationStateCI,
-                .pMultisampleState = &multisampleStateCI,
-                .pDepthStencilState = &depthStencilStateCI,
-                .pColorBlendState = &colorBlendStateCI,
-                .pDynamicState = &dynamicStateCI,
-                .layout = *pPipelineLayout,
-                .renderPass = pHALRenderPass->GetVkRenderPass(),
-            },
-            vk::PipelineCreationFeedbackCreateInfoEXT {
-                .pPipelineCreationFeedback = &creationFeedback,
-                .pipelineStageCreationFeedbackCount = _countof(stageCreationFeedbacks),
-                .pPipelineStageCreationFeedbacks = stageCreationFeedbacks
-            }
-        };
-
-        std::tie(std::ignore, pPipeline) = pDevice.createGraphicsPipelineUnique(*pPipelineCache, pipelineCI.get<vk::GraphicsPipelineCreateInfo>()).asTuple();
-        vkx::setDebugName(pDevice, *pPipeline, "WaveFront");      
-        fmt::print("Flags: {} Duration: {}s\n", vk::to_string(creationFeedback.flags), creationFeedback.duration / 1E9f);     
-    }
-    
-    HAL::GraphicsCommandQueue graphicsCommandQueue = { *pHALDevice };
-
-    std::vector<std::unique_ptr<HAL::GraphicsCommandAllocator>> commandAllocators;
-    for (size_t index = 0; index < BUFFER_COUNT; index++) {
-        commandAllocators.emplace_back(std::make_unique<HAL::GraphicsCommandAllocator>(*pDevice));
-    }
-
-    std::vector<HAL::GraphicsCommandList> cmdLists;
-    for (size_t index = 0; index < BUFFER_COUNT; index++) 
-        cmdLists.emplace_back(std::make_unique<HAL::GraphicsCommandAllocator>(*commandAllocators[index]));
-    
-
-    std::vector<vk::UniqueDescriptorPool> descriptorPools;
-    for (size_t index = 0; index < BUFFER_COUNT; index++) {
-        vk::DescriptorPoolSize descriptorPoolSize[] = {
-            vk::DescriptorPoolSize {
-                .type = vk::DescriptorType::eUniformBufferDynamic,
-                .descriptorCount = 1
-            }
-        };
-
-        vk::DescriptorPoolCreateInfo descriptorPoolCI = {
-            .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-            .maxSets = 1,
-            .poolSizeCount = _countof(descriptorPoolSize),
-            .pPoolSizes = descriptorPoolSize
-        };
-        auto pDescriptorPool = pDevice.createDescriptorPoolUnique(descriptorPoolCI);
-        vkx::setDebugName(pDevice, *pDescriptorPool, fmt::format("[{0}]", index));
-        descriptorPools.push_back(std::move(pDescriptorPool));
-    }
-
-    std::vector<vk::UniqueDescriptorSet> descriptorSets;
-    for (size_t index = 0; index < BUFFER_COUNT; index++) {
-        vk::DescriptorSetLayout descriptorSetLayouts[] = {
-            *pDescriptorSetLayout
-        };
-   
-        vk::DescriptorSetAllocateInfo descriptorSetAI = {
-            .descriptorPool = *descriptorPools[index],
-            .descriptorSetCount = _countof(descriptorSetLayouts),
-            .pSetLayouts = descriptorSetLayouts
-        };
-        auto pDescriptorSet = std::move(pDevice.allocateDescriptorSetsUnique(descriptorSetAI).front());
-        vkx::setDebugName(pDevice, *pDescriptorSet, fmt::format("[{0}]", index));
-        descriptorSets.push_back(std::move(pDescriptorSet));
-    }
+   //
+   // 
+   // HAL::ShaderCompiler compiler = { HAL::ShaderCompilerCreateInfo{ .ShaderModelVersion = HAL::ShaderModel::SM_6_5, .IsDebugMode = true } };
+   //
+   // vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
+   //     vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
+   //         vk::DescriptorSetLayoutBinding {
+   //             .binding = 0,
+   //             .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
+   //             .descriptorCount = 1,
+   //             .stageFlags = vk::ShaderStageFlagBits::eAllGraphics
+   //         }   
+   //     };
+   //
+   //     vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
+   //         .bindingCount = _countof(descriptorSetLayoutBindings),
+   //         .pBindings = descriptorSetLayoutBindings
+   //     };
+   //
+   //     pDescriptorSetLayout = pDevice.createDescriptorSetLayoutUnique(descriptorSetLayoutCI);
+   //     vkx::setDebugName(pDevice, *pDescriptorSetLayout, "");
+   // }
+   //
+   // vk::UniquePipelineLayout pPipelineLayout; {
+   //     vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
+   //         .setLayoutCount = 1,
+   //         .pSetLayouts = pDescriptorSetLayout.getAddressOf(),
+   //         .pushConstantRangeCount = 0
+   //     };
+   //     pPipelineLayout = pDevice.createPipelineLayoutUnique(pipelineLayoutCI);
+   //     vkx::setDebugName(pDevice, *pPipelineLayout, "");  
+   // }
+   //
+   // 
+   // std::unique_ptr<HAL::GraphicsPipeline> pPipeline; {
+   //   
+   //     auto const spirvVS = *compiler.CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
+   //     auto const spirvPS = *compiler.CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Pixel,  {});
+   //
+   //     HAL::GraphicsPipelineCreateInfo pipelineCI = {
+   //         .VS = { .pData = std::data(spirvVS), .Size = std::size(spirvVS) },
+   //         .PS = { .pData = std::data(spirvPS), .Size = std::size(spirvPS) },
+   //     };
+   //
+   //     pPipeline = std::make_unique<HAL::GraphicsPipeline>(pHALDevice, pHALRenderPass, pipelineCI);
+   // }
+   //
+   // std::vector<std::unique_ptr<HAL::GraphicsCommandAllocator>> commandAllocators;
+   // for (size_t index = 0; index < BUFFER_COUNT; index++) 
+   //     commandAllocators.emplace_back(std::make_unique<HAL::GraphicsCommandAllocator>(*pDevice));
+   //
+   //
+   // std::vector<std::unique_ptr<HAL::GraphicsCommandList>> commandLists;
+   // for (size_t index = 0; index < BUFFER_COUNT; index++) 
+   //     commandLists.emplace_back(std::make_unique<HAL::GraphicsCommandList>(*commandAllocators[index]));
+   // 
+   //
+   // std::vector<vk::UniqueDescriptorPool> descriptorPools;
+   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
+   //     vk::DescriptorPoolSize descriptorPoolSize[] = {
+   //         vk::DescriptorPoolSize {
+   //             .type = vk::DescriptorType::eUniformBufferDynamic,
+   //             .descriptorCount = 1
+   //         }
+   //     };
+   //
+   //     vk::DescriptorPoolCreateInfo descriptorPoolCI = {
+   //         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+   //         .maxSets = 1,
+   //         .poolSizeCount = _countof(descriptorPoolSize),
+   //         .pPoolSizes = descriptorPoolSize
+   //     };
+   //     auto pDescriptorPool = pDevice.createDescriptorPoolUnique(descriptorPoolCI);
+   //     vkx::setDebugName(pDevice, *pDescriptorPool, fmt::format("[{0}]", index));
+   //     descriptorPools.push_back(std::move(pDescriptorPool));
+   // }
+   //
+   // std::vector<vk::UniqueDescriptorSet> descriptorSets;
+   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
+   //     vk::DescriptorSetLayout descriptorSetLayouts[] = {
+   //         *pDescriptorSetLayout
+   //     };
+   //
+   //     vk::DescriptorSetAllocateInfo descriptorSetAI = {
+   //         .descriptorPool = *descriptorPools[index],
+   //         .descriptorSetCount = _countof(descriptorSetLayouts),
+   //         .pSetLayouts = descriptorSetLayouts
+   //     };
+   //     auto pDescriptorSet = std::move(pDevice.allocateDescriptorSetsUnique(descriptorSetAI).front());
+   //     vkx::setDebugName(pDevice, *pDescriptorSet, fmt::format("[{0}]", index));
+   //     descriptorSets.push_back(std::move(pDescriptorSet));
+   // }
    
     //std::vector<std::tuple<vk::UniqueBuffer, vma::UniqueAllocation, vma::AllocationInfo>> uniformBuffers;
     //for (size_t index = 0; index < BUFFER_COUNT; index++) {   
@@ -974,41 +781,51 @@ int main(int argc, char* argv[]) {
     //    pDevice.updateDescriptorSets(writeDescriptorSet, {});
     //}
     
-    std::vector<vk::UniqueQueryPool> queryPools;
-    for (size_t index = 0; index < BUFFER_COUNT; index++) {
-        vk::QueryPoolCreateInfo queryPoolCI = {
-            .queryType = vk::QueryType::eTimestamp,
-            .queryCount = 2
-        };
-        auto pQueryPool = pDevice.createQueryPoolUnique(queryPoolCI);
-        queryPools.push_back(std::move(pQueryPool));
-    }
+   // std::vector<vk::UniqueQueryPool> queryPools;
+   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
+   //     vk::QueryPoolCreateInfo queryPoolCI = {
+   //         .queryType = vk::QueryType::eTimestamp,
+   //         .queryCount = 2
+   //     };
+   //     auto pQueryPool = pDevice.createQueryPoolUnique(queryPoolCI);
+   //     queryPools.push_back(std::move(pQueryPool));
+   // }
+   //
+   // 
+   // uint64_t fenceIndices[BUFFER_COUNT] = {};
 
+    std::vector<std::unique_ptr<HAL::Fence>> fences;
+    for(size_t index = 0; index < BUFFER_COUNT; index++) {
+        fences.push_back(std::move(std::make_unique<HAL::Fence>(*pHALDevice, 0)));
+    }
+   
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImPlot::CreateContext();
-
+   
     auto& io = ImGui::GetIO();
     io.Fonts->AddFontFromFileTTF("content/fonts/Roboto-Medium.ttf", 15.0f);
     ImGui::StyleColorsDark();
     ImPlot::GetStyle().AntiAliasedLines = true;
-
+   
     ImGui_ImplGlfw_InitForVulkan(pWindow.get(), true);
     ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALAllocator->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass(), BUFFER_COUNT);
-
 
     glfwSetWindowUserPointer(pWindow.get(), pHALSwapChain.get());
     glfwSetWindowSizeCallback(pWindow.get(), [](GLFWwindow* pWindow, int32_t width, int32_t height)->void {
         auto pSwapChain = reinterpret_cast<HAL::SwapChain*>(glfwGetWindowUserPointer(pWindow));
         pSwapChain->Resize(width, height);
     });
-   
+
+
     float CPUFrameTime = 0.0f;
     float GPUFrameTime = 0.0f;
-
+   
+    const HAL::GraphicsCommandQueue* pHALCommandQueue = pHALDevice->GetGraphicsCommandQueue();
+  
     while (!glfwWindowShouldClose(pWindow.get())) {
         auto const timestampT0 = std::chrono::high_resolution_clock::now();
-
+   
         glfwPollEvents();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -1022,28 +839,28 @@ int main(int argc, char* argv[]) {
                         buffer[index] = std::round(std::pow(10, p) * (vmin + index * step)) / std::pow(10, p);
                     }
                 };
-
+   
                 static ScrollingBuffer scrollingCPUData{};
                 static ScrollingBuffer scrollingGPUData{};
                 ImVector<double> customTicks;
-
+   
                 static uint64_t frameIndex = 0;
                 static float totalTime = 0;
                 static float history = 5.0f;
-
+   
                 float maxTimeCPU = scrollingCPUData.ComputeMax(history);
                 float maxTimeGPU = scrollingGPUData.ComputeMax(history);
                 float maxTime = 1.5f * std::max(maxTimeGPU, maxTimeCPU);
                 float averageTime = scrollingCPUData.ComputeAverage(history);
-
+   
                 scrollingGPUData.AddPoint(totalTime, GPUFrameTime);
                 scrollingCPUData.AddPoint(totalTime, CPUFrameTime);
                 FillRangeRounded(customTicks, 5, 0.0, maxTime, 1);
-
+   
                 ImGui::BulletText("CPU Time: %.1fms", CPUFrameTime);
                 ImGui::BulletText("GPU Time: %.1fms", GPUFrameTime);
                 ImGui::BulletText("Average FPS: %.0f", 1000.0f * (1.0f / averageTime));
-
+   
                 if (ImGui::TreeNode("Show Graphics ##Frame Statistic")) { 
                     ImGui::SliderFloat("History", &history, 1, 10, "%.1fs");
                     ImPlot::SetNextPlotLimitsX(totalTime - history, totalTime, ImGuiCond_Always);
@@ -1060,7 +877,7 @@ int main(int argc, char* argv[]) {
                     }
                     ImGui::TreePop();
                 }
-
+   
                 totalTime += CPUFrameTime / 1000.0f;
                 frameIndex++;
             }
@@ -1076,7 +893,7 @@ int main(int argc, char* argv[]) {
                 
                 float maxMemorySize = 0.0f;
                 float maxMemoryTime = 0.0f;
-
+   
                 for (auto const& heap : memoryGPU.GetMemoryStatistic()) {
                     auto id = fmt::format("Memory Heap: [{0}] Type: {1}", heap.MemoryIndex, memoryType(heap.MemoryType));
                     if (ImGui::TreeNode(id.c_str())) {
@@ -1093,12 +910,12 @@ int main(int argc, char* argv[]) {
                     ImPlot::SetNextPlotLimitsX(0.0f, maxMemoryTime, ImGuiCond_Always);
                     ImPlot::SetNextPlotLimitsY(0.0f, maxMemorySize, ImGuiCond_Always);
                     ImPlot::SetNextPlotTicksY(0.0f, maxMemorySize, 5, nullptr);
-
+   
                     if (ImPlot::BeginPlot("##MemoryStatistic", 0, 0, ImVec2(-1, 175), 0, ImPlotAxisFlags_None, ImPlotAxisFlags_None)) {
                         for (auto const& heap : memoryGPU.GetMemoryStatistic()) {
                             std::vector<ImVec2> memoryFrames{};
                             std::transform(std::begin(heap.MemoryFrames), std::end(heap.MemoryFrames), std::back_inserter(memoryFrames), [](auto x) -> ImVec2 { return ImVec2(static_cast<float>(x.TimePoint), static_cast<float>(x.MemoryUsed >> 20)); });
-
+   
                             auto id = fmt::format("Heap: [{0}] Type: {1}", heap.MemoryIndex, memoryType(heap.MemoryType));
                             ImPlot::PushStyleVar(ImPlotStyleVar_FillAlpha, 0.25f);
                             ImPlot::PlotShaded(id.c_str(), &memoryFrames[0].x, &memoryFrames[0].y, static_cast<int32_t>(std::size(memoryFrames)), 0, 0, sizeof(ImVec2));
@@ -1112,33 +929,35 @@ int main(int argc, char* argv[]) {
                 }      
             }              
         }
-
+   
         ImGui::End();
         ImGui::Render();
-
+   
         int32_t width  = 0;
         int32_t height = 0;
         glfwGetWindowSize(pWindow.get(), &width, &height);
 
-        uint32_t currentBufferIndex = pHALSwapChain->AcquireNextImage();
-       
+        static uint64_t frameID = 0;
+        uint64_t currentBufferIndex = frameID++ % BUFFER_COUNT;    
+
+        //Acquire Image 
+        pHALSwapChain->AcquireNextImage();
+
+
+        //Render pass
+        //....
+
         vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
         vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
 
-        vk::UniqueCommandBuffer& pCmdBuffer = cmdBuffers[currentBufferIndex];
-        vk::UniqueQueryPool& pQueryPool = queryPools[currentBufferIndex];
-        
-        pCmdBuffer->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-        pCmdBuffer->resetQueryPool(*pQueryPool, 0, 2);
-        pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 0);
+        pCommandBuffer[currentBufferIndex]->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
         {
-            vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Begin Frame", std::array<float, 4>{ 1.0f, 0.0f, 0.0f, 1.0f } };
-            
+                    
             HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
                 HAL::RenderPassAttachmentInfo {
                     .ImageView =  pHALSwapChain->GetCurrentImageView(),
                     .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 0.0f, 0.0f, 0.0f, 1.0f } }},
+                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 1.0f, 0.0f, 0.0f, 1.0f } }},
                     .Width = static_cast<uint32_t>(width),
                     .Height = static_cast<uint32_t>(height),
                     .LayerCount = 1            
@@ -1153,63 +972,118 @@ int main(int argc, char* argv[]) {
                 .FramebufferHeight = static_cast<uint32_t>(height),
                 .FramebufferLayers = 1            
             };       
-   
-            pHALRenderPass->BeginRenderPass(*pCmdBuffer, renderPassBeginInfo, vk::SubpassContents::eInline);           
-            {
-                vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render Color", std::array<float, 4>{ 0.0f, 1.0f, 0.0f, 1.0f } };
-                pCmdBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, *pPipeline);         
-                pCmdBuffer->setScissor(0, { scissor });
-                pCmdBuffer->setViewport(0, { viewport });
-                pCmdBuffer->draw(3, 1, 0, 0);
-            }  
+        
+            pHALRenderPass->BeginRenderPass(*pCommandBuffer[currentBufferIndex], renderPassBeginInfo, vk::SubpassContents::eInline);           
+            
+            ImGui_ImplVulkan_NewFrame(*pCommandBuffer[currentBufferIndex], currentBufferIndex);
 
-            {
-                vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render GUI", std::array<float, 4>{ 0.0f, 0.0f, 1.0f, 1.0f } };
-                ImGui_ImplVulkan_NewFrame(*pCmdBuffer, currentBufferIndex);
-            }
-            pHALRenderPass->EndRenderPass(*pCmdBuffer);
+            pHALRenderPass->EndRenderPass(*pCommandBuffer[currentBufferIndex]);
         }
-        pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 1);
-        pCmdBuffer->end();
-        
-        vk::PipelineStageFlags waitStageMask[]  = {
-            vk::PipelineStageFlags(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-        };
-
-       // HAL::SwapChain::SynchronizationInfo frameSyncInfo = pHALSwapChain->GetSyncInfo();
-       //
-       // vk::SubmitInfo submitInfo = {
-       //     .waitSemaphoreCount = 1, 
-       //     .pWaitSemaphores = &frameSyncInfo.SemaphoresAvailable,
-       //     .pWaitDstStageMask  = waitStageMask,
-       //     .commandBufferCount = 1,
-       //     .pCommandBuffers = pCmdBuffer.getAddressOf(),
-       //     .signalSemaphoreCount = 1,
-       //     .pSignalSemaphores = &frameSyncInfo.SemaphoresFinished       
-       // };    
-        
+        pCommandBuffer[currentBufferIndex]->end();
 
 
-       // pHALDevice->GetGraphicsCommandQueue().ExecuteCommandList();
-        pHALSwapChain->Present();
-      
-        if (auto result = pDevice.getQueryPoolResults<uint64_t>(*pQueryPool, 0, 2, 2 * sizeof(uint64_t), sizeof(uint64_t), vk::QueryResultFlagBits::e64); result.result == vk::Result::eSuccess) 
-            GPUFrameTime = pHALDevice->GetVkPhysicalDevice().getProperties().limits.timestampPeriod * (result.value[1] - result.value[0]) / 1E6f;
-        
+        //Execute command List
+        pHALCommandQueue->GetVkQueue().submit(vk::SubmitInfo { .commandBufferCount = 1, .pCommandBuffers = pCommandBuffer[currentBufferIndex].getAddressOf() }, nullptr);
+
+
+        //Signal and increment the fence value
+        uint64_t fenceValue = fences[currentBufferIndex]->Increment();
+        pHALCommandQueue->Signal(*fences[currentBufferIndex]);
+
+        //Present
+        pHALSwapChain->Present(*fences[currentBufferIndex]);        
+
+        //Wait until the previous frame is finished
+        if (!fences[currentBufferIndex]->IsCompleted())        
+            fences[currentBufferIndex]->Wait(fenceValue);
+
+         
+       
+       // pHALFence->Wait(); 
+
+   //
+   //     //------------------------------//
+   //     uint64_t currentFrameID  = pHALSwapChain->GetCurrentFrame();
+   //     uint64_t currentBufferID = pHALSwapChain->GetCurrentBuffer();
+   //
+   //     pHALSwapChain->AcquireNextImage(*pHALFence, fenceIndices[currentBufferID]); //Wait Previous Frame
+   //
+
+        //Record new Command buffer
+
+        //vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
+        //vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
+        //
+        //vk::UniqueCommandBuffer& pCmdBuffer = commandLists[currentBufferIndex];
+        //vk::UniqueQueryPool& pQueryPool = queryPools[currentBufferIndex];
+        //
+        //pCmdBuffer->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        //pCmdBuffer->resetQueryPool(*pQueryPool, 0, 2);
+        //pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 0);
+        //{
+        //    vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Begin Frame", std::array<float, 4>{ 1.0f, 0.0f, 0.0f, 1.0f } };
+        //    
+        //    HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
+        //        HAL::RenderPassAttachmentInfo {
+        //            .ImageView =  pHALSwapChain->GetCurrentImageView(),
+        //            .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        //            .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 0.0f, 0.0f, 0.0f, 1.0f } }},
+        //            .Width = static_cast<uint32_t>(width),
+        //            .Height = static_cast<uint32_t>(height),
+        //            .LayerCount = 1            
+        //        }         
+        //    };
+        //    
+        //    HAL::RenderPassBeginInfo renderPassBeginInfo = {
+        //        .AttachmentCount = _countof(renderPassAttachments),
+        //        .pAttachments = renderPassAttachments,
+        //        .RenderArea = scissor,
+        //        .FramebufferWidth  = static_cast<uint32_t>(width),
+        //        .FramebufferHeight = static_cast<uint32_t>(height),
+        //        .FramebufferLayers = 1            
+        //    };       
+        //
+        //    pHALRenderPass->BeginRenderPass(*pCmdBuffer, renderPassBeginInfo, vk::SubpassContents::eInline);           
+        //    {
+        //        vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render Color", std::array<float, 4>{ 0.0f, 1.0f, 0.0f, 1.0f } };
+        //        pCmdBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, *pPipeline);         
+        //        pCmdBuffer->setScissor(0, { scissor });
+        //        pCmdBuffer->setViewport(0, { viewport });
+        //        pCmdBuffer->draw(3, 1, 0, 0);
+        //    }  
+        //
+        //    {
+        //        vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render GUI", std::array<float, 4>{ 0.0f, 0.0f, 1.0f, 1.0f } };
+        //        ImGui_ImplVulkan_NewFrame(*pCmdBuffer, currentBufferIndex);
+        //    }
+        //    pHALRenderPass->EndRenderPass(*pCmdBuffer);
+        //}
+        //pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 1);
+        //pCmdBuffer->end();
+        //
+
+        //Excecute command buffer and set signal after execution
+
+        //pHALCommandQueue->ExecuteCommandList(nullptr, 0);
+        //pHALCommandQueue->Signal(*pHALFence, fenceValue);
+        //pHALSwapChain->Present(); // Signal Present Engine 
+              
+
+        //------------------------------//
+
+        //if (auto result = pDevice.getQueryPoolResults<uint64_t>(*pQueryPool, 0, 2, 2 * sizeof(uint64_t), sizeof(uint64_t), vk::QueryResultFlagBits::e64); result.result == vk::Result::eSuccess) 
+        //    GPUFrameTime = pHALDevice->GetVkPhysicalDevice().getProperties().limits.timestampPeriod * (result.value[1] - result.value[0]) / 1E6f;
+        //
         auto const timestampT1 = std::chrono::high_resolution_clock::now();
         CPUFrameTime = std::chrono::duration<float, std::milli>(timestampT1 - timestampT0).count();
+        GPUFrameTime = 0.0f;
     }
 
-    {
-        std::vector<uint8_t> cacheData = pDevice.getPipelineCacheData(*pPipelineCache);
-        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "wb"), std::fclose);
-        std::fwrite(std::data(cacheData), sizeof(uint8_t), std::size(cacheData), pFile.get());
-    }
-  
-
-    pHALDevice->Flush();
+ 
+    pHALDevice->WaitIdle();
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
     ImGui::DestroyContext();
+
 }

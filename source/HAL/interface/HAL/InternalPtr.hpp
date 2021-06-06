@@ -4,6 +4,8 @@
 #include <optional>
 #include <cinttypes>
 #include <type_traits>
+#include <vector>
+#include <string>
 
 
 namespace HAL {
@@ -13,6 +15,7 @@ namespace HAL {
         std::aligned_storage_t<Size, Alignment> m_Data;
     private:
        auto GetPtr() noexcept -> T* { return reinterpret_cast<T*>(&m_Data); }
+
        auto GetPtr() const noexcept -> const T* { return reinterpret_cast<const T*>(&m_Data); }
     
        template<size_t ActualSize, size_t ActualAlignment> 
@@ -22,34 +25,45 @@ namespace HAL {
        }
     public:
         template<typename... Args>
-        explicit Internal_Ptr(Args&&... args) {  new (GetPtr()) T(std::forward<Args>(args)...);  };
-       
+        explicit Internal_Ptr(Args&&... args) noexcept { new (GetPtr()) T(std::forward<Args>(args)...);  }
+    
+        Internal_Ptr(Internal_Ptr const& rhs) noexcept { new (GetPtr()) T(*rhs); }
+
+        Internal_Ptr(Internal_Ptr&& rhs) noexcept { new (GetPtr()) T(std::move(*rhs)); }      
+
         ~Internal_Ptr() noexcept {
             Validate<sizeof(T), alignof(T)>();
             GetPtr()->~T();
         }
            
+        Internal_Ptr& operator=(Internal_Ptr const& rhs)  {
+            *GetPtr() = *rhs;
+            return *this;
+        }
+            
         Internal_Ptr& operator=(Internal_Ptr&& rhs) noexcept { 
             *GetPtr() = std::move(*rhs);
             return *this;
         }
         
         T* operator->() noexcept { return GetPtr(); }
+
         const T* operator->() const noexcept { return GetPtr(); }
         
         T& operator*() noexcept { return *GetPtr(); }
-        const T& operator*() const noexcept { return *GetPtr(); };
+
+        const T& operator*() const noexcept { return *GetPtr(); }
     };
 }
 
 namespace HAL {
-    constexpr size_t InternalSize_Adapter   = 64;
-    constexpr size_t InternalSize_Instance  = 64; 
-    constexpr size_t InternalSize_Device    = 64;
-    constexpr size_t InternalSize_SwapChain = 64;
-    constexpr size_t InternalSize_Fence     = 64;
+    constexpr size_t InternalSize_Adapter   = 2496;
+    constexpr size_t InternalSize_Instance  = 128; 
+    constexpr size_t InternalSize_Device    = 200;
+    constexpr size_t InternalSize_SwapChain = 328;
+    constexpr size_t InternalSize_Fence     = 40;
     constexpr size_t InternalSize_Compiler  = 64;
-    constexpr size_t InternalSize_CommandQueue = 64;
+    constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 64;
     constexpr size_t InternalSize_CommandList = 64;
 }
@@ -77,15 +91,17 @@ namespace HAL {
     class ComputeCommandList;
     class GraphicsCommandList;
 
-    class Compiler;
+    class ShaderCompiler;
 }
 
 namespace vk {
     class Instance;
     class PhysicalDevice;
     class Device;
-    class SwapChainKHR;
+    class SwapchainKHR;
     class Queue;
     class CommandPool;
     class CommandBuffer;   
+    class PipelineCache;
+    class Semaphore;
 }
