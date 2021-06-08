@@ -11,7 +11,7 @@ namespace HAL {
     public:
         Internal(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo);
         
-        auto WaitIdle() -> void { m_pDevice->waitIdle(); }
+        auto WaitIdle() const -> void { m_pDevice->waitIdle(); }
 
         auto GetGraphicsQueueFamilyIndex() const -> uint32_t { return m_QueueFamilyGraphics->queueIndex; }
         

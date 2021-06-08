@@ -1,110 +1,66 @@
-#include <vulkan/vulkan_decl.h>
-
 #include "../include/SwapChainImpl.hpp"
 #include "../include/InstanceImpl.hpp"
 #include "../include/DeviceImpl.hpp"
 #include "../include/FenceImpl.hpp"
 #include "../include/CommandQueueImpl.hpp"
 
+
 namespace HAL {
-    SwapChain::Internal::Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo) {
-       
+    SwapChain::Internal::Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo) {      
         auto pDeviceImpl = (Device::Internal*)(&device);
         auto pInstanceImpl = (Instance::Internal*)(&instance);
 
         m_Device = pDeviceImpl->GetDevice();
         m_Instance = pInstanceImpl->GetInstance();
         m_PhysicalDevice = pDeviceImpl->GetPhysicalDevice();
-        m_PresentQueue = pDeviceImpl->GetGraphicsCommandQueue()->GetVkQueue();
-        m_QueueFamilyIndex = pDeviceImpl->GetGraphicsQueueFamilyIndex();
-              
 
         m_IsSRGBEnabled = createInfo.IsSRGB;
         m_IsVSyncEnabled = createInfo.IsVSync;
-        m_BufferCount = createInfo.BufferCount;
         m_WindowHandle = reinterpret_cast<HWND>(createInfo.WindowHandle);
 
-        this->CreateSurface();
+        this->CreateSurface(device);
         this->CreateSwapChain(createInfo.Width, createInfo.Height);
         this->CreateSyncPrimitives();
     }
 
-    SwapChain::Internal::~Internal() {
-        this->WaitAcquiredFencesAndReset();
+    SwapChain::Internal::~Internal() {}
+
+    auto SwapChain::Internal::Acquire() -> void {
+        m_BufferIndices.push(m_BufferIndex++ % m_BufferCount);
+        assert(m_BufferIndices.size() <= m_BufferCount);
     }
 
-    auto SwapChain::Internal::AcquireNextImage() -> void {
-        //TODO lock
-        m_CurrentImageIndex = m_Device.acquireNextImageKHR(m_pSwapChain.get(), std::numeric_limits<uint64_t>::max(), *m_SwapChainSemaphoresAvailable[m_CurrentBufferIndex], nullptr);
-           
-        vk::Semaphore semaphores[] = { *m_SwapChainSemaphoresAvailable[m_CurrentBufferIndex] }; 
-
-        vk::PipelineStageFlags stageMask[] = { vk::PipelineStageFlagBits::eBottomOfPipe };
-
-        vk::SubmitInfo submitInfo = {
-            .waitSemaphoreCount = _countof(semaphores),
-            .pWaitSemaphores = semaphores,
-            .pWaitDstStageMask = stageMask        
-        };        
-        m_PresentQueue.submit(submitInfo, nullptr);  
+    auto SwapChain::Internal::Release() -> void {
+        m_BufferIndices.pop();
     }
 
-    auto SwapChain::Internal::Present(Fence& fence) -> void {
-        //TODO lock        
-        
-        uint64_t signalSemaphoreValues[] = { 0 };
-        uint64_t waitSemaphoreValues[] = { fence.GetExpectedValue() };
 
-        vk::Semaphore signalSemaphores[] = { *m_SwapChainSemaphoresFinished[m_CurrentBufferIndex] }; 
-        vk::Semaphore waitSemahores[] = { fence.GetVkSemaphore() };
-        
-        vk::PipelineStageFlags stageMask[] = { vk::PipelineStageFlagBits::eBottomOfPipe };
-        
-        vk::TimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {
-            .waitSemaphoreValueCount = _countof(waitSemaphoreValues),
-            .pWaitSemaphoreValues = waitSemaphoreValues,      
-            .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
-            .pSignalSemaphoreValues = signalSemaphoreValues
-        };
-
-        vk::SubmitInfo submitInfo = {
-            .pNext = &timelineSemaphoreSubmitInfo,
-            .waitSemaphoreCount =  _countof(waitSemahores),
-            .pWaitSemaphores = waitSemahores,
-            .pWaitDstStageMask = stageMask,
-            .signalSemaphoreCount = _countof(signalSemaphores),
-            .pSignalSemaphores = signalSemaphores,           
-        };            
-
-        m_PresentQueue.submit(submitInfo, nullptr);
-
-        vk::PresentInfoKHR presentInfo = {
-            .waitSemaphoreCount = 1,
-            .pWaitSemaphores = m_SwapChainSemaphoresFinished[m_CurrentBufferIndex].getAddressOf(),
-            .swapchainCount = 1,
-            .pSwapchains = m_pSwapChain.getAddressOf(),
-            .pImageIndices = &m_CurrentImageIndex
-        };
-        std::ignore = m_PresentQueue.presentKHR(presentInfo);
-        m_CurrentBufferIndex = (m_CurrentBufferIndex + 1) % m_BufferCount;
-    }
-
-    auto SwapChain::Internal::Resize(uint32_t width, uint32_t height) -> void {
-        this->WaitAcquiredFencesAndReset();
-        this->CreateSwapChain(width, height);
-    }
-
-    auto SwapChain::Internal::CreateSurface() -> void {
+    auto SwapChain::Internal::CreateSurface(Device const& device) -> void {
         vk::Win32SurfaceCreateInfoKHR surfaceCI = {
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = m_WindowHandle
         };
 
         m_pSurface = m_Instance.createWin32SurfaceKHRUnique(surfaceCI);
-        vkx::setDebugName(m_Device, *m_pSurface, "Win32SurfaceKHR");
+        vkx::setDebugName(m_Device, *m_pSurface, "Win32SurfaceKHR");  
+    
+        auto pDeviceImpl = (Device::Internal*)(&device);
+    
+        if (m_PhysicalDevice.getSurfaceSupportKHR(pDeviceImpl->GetGraphicsQueueFamilyIndex(), *m_pSurface)) 
+            m_QueueFamilyIndices.push_back(pDeviceImpl->GetGraphicsQueueFamilyIndex());
+         
+        if (m_PhysicalDevice.getSurfaceSupportKHR(pDeviceImpl->GetComputeQueueFamilyIndex(), *m_pSurface)) 
+            m_QueueFamilyIndices.push_back(pDeviceImpl->GetComputeQueueFamilyIndex());
 
-        if (!m_PhysicalDevice.getSurfaceSupportKHR(m_QueueFamilyIndex, *m_pSurface)) 
-            fmt::print("Error: Select surface isn't supported by physical device");       
+        if (m_PhysicalDevice.getSurfaceSupportKHR(pDeviceImpl->GetTransferQueueFamilyIndex(), *m_pSurface)) 
+            m_QueueFamilyIndices.push_back(pDeviceImpl->GetTransferQueueFamilyIndex());
+
+        std::sort(std::begin(m_QueueFamilyIndices), std::end(m_QueueFamilyIndices));
+        m_QueueFamilyIndices.erase(std::unique(std::begin(m_QueueFamilyIndices), std::end(m_QueueFamilyIndices)), std::end(m_QueueFamilyIndices));
+        
+        if(m_QueueFamilyIndices.empty())
+            fmt::print("Error: Select surface isn't supported by physical device");     
+
     }
 
     auto SwapChain::Internal::CreateSwapChain(uint32_t width, uint32_t height) -> void {
@@ -152,23 +108,26 @@ namespace HAL {
         }
           
         m_SurfaceCapabilities = m_PhysicalDevice.getSurfaceCapabilitiesKHR(*m_pSurface);
+        m_BufferCount = std::min(m_SurfaceCapabilities.minImageCount + 1, m_SurfaceCapabilities.maxImageCount);
 
         vk::SwapchainCreateInfoKHR swapchainCI = {
             .surface = *m_pSurface,
-            .minImageCount = m_SurfaceCapabilities.minImageCount + 1,
+            .minImageCount = m_BufferCount,
             .imageFormat = m_SurfaceFormat.format,
             .imageColorSpace = m_SurfaceFormat.colorSpace,
             .imageExtent = { .width = width, .height = height },
             .imageArrayLayers = 1,
             .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-            .imageSharingMode = vk::SharingMode::eExclusive,
-            .presentMode = m_PresentMode,
-            .clipped = true,
-            .oldSwapchain = *m_pSwapChain
+            .imageSharingMode = std::size(m_QueueFamilyIndices) > 1 ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive,
+            .queueFamilyIndexCount = static_cast<uint32_t>(std::size(m_QueueFamilyIndices)),
+            .pQueueFamilyIndices = std::data(m_QueueFamilyIndices),
+            .presentMode = m_PresentMode, 
+            .clipped = true
         };
 
         m_pSwapChain = m_Device.createSwapchainKHRUnique(swapchainCI);
         vkx::setDebugName(m_Device, *m_pSwapChain, fmt::format("Format: {} PresentMode: {} Width: {} Height: {}", vk::to_string(swapchainCI.imageFormat), vk::to_string(swapchainCI.presentMode), width, height));
+
 
         m_SwapChainImages = m_Device.getSwapchainImagesKHR(*m_pSwapChain);
         for (size_t index = 0; index < std::size(m_SwapChainImages); index++) {
@@ -188,27 +147,20 @@ namespace HAL {
             vkx::setDebugName(m_Device, m_SwapChainImages[index], fmt::format("SwapChain[{0}]", index));
             vkx::setDebugName(m_Device, *pImageView, fmt::format("SwapChain[{0}]", index));
             m_SwapChainImageViews.push_back(std::move(pImageView));
-        }
+        }        
     }
 
     auto SwapChain::Internal::CreateSyncPrimitives() -> void {
-        for (size_t index = 0; index < m_BufferCount; index++) {
+        for (uint32_t index = 0; index < m_BufferCount; index++) {
             auto pSemaphoresAvailable = m_Device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});
             auto pSemaphoresFinished = m_Device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});         
 
             vkx::setDebugName(m_Device, *pSemaphoresAvailable, fmt::format("SwapChain Available[{}]", index));
             vkx::setDebugName(m_Device, *pSemaphoresFinished, fmt::format("SwapChain Finished[{}]", index));        
 
-            m_SwapChainSemaphoresAvailable.push_back(std::move(pSemaphoresAvailable));
-            m_SwapChainSemaphoresFinished.push_back((std::move(pSemaphoresFinished)));
+            m_SemaphoresAvailable.push_back(std::move(pSemaphoresAvailable));
+            m_SemaphoresFinished.push_back((std::move(pSemaphoresFinished)));
         }
-    }
-
-    auto SwapChain::Internal::WaitAcquiredFencesAndReset() -> void {          
-        m_PresentQueue.waitIdle();
-        m_SwapChainImageViews.clear();
-        m_pSwapChain.reset();
-        m_CurrentBufferIndex = 0;
     }
 }
 
@@ -218,21 +170,10 @@ namespace HAL {
 
     SwapChain::~SwapChain() = default;
 
-    auto SwapChain::AcquireNextImage() -> void {
-        m_pInternal->AcquireNextImage();
+    auto SwapChain::GetImageView(uint32_t imageID) const -> vk::ImageView {
+        return m_pInternal->GetImageView(imageID);
     }
 
-    auto SwapChain::Present(Fence& fence) -> void {
-        m_pInternal->Present(fence);
-    }
-
-    auto SwapChain::Resize(uint32_t width, uint32_t height) -> void {
-        m_pInternal->Resize(width, height);
-    }
-
-    auto SwapChain::GetCurrentImageView() const -> vk::ImageView {
-        return m_pInternal->GetCurrentImageView();
-    }
 
     auto SwapChain::GetVkSwapChain() const -> vk::SwapchainKHR {
         return m_pInternal->GetSwapChain();

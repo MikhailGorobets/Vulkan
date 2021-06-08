@@ -7,16 +7,19 @@ namespace HAL {
     public:
         class Internal;
     protected:
-        CommandAllocator(Device const& device);
-
+        CommandAllocator(Device const& device, uint32_t queueFamily);
+    public: 
+        ~CommandAllocator();  
+    
         auto GetVkCommandPool() const -> vk::CommandPool;
-    private:     
+
+    protected:     
         Internal_Ptr<Internal, InternalSize_CommandAllocator> m_pInternal;   
     };
     
     class TransferCommandAllocator: public CommandAllocator {
     public:
-        TransferCommandAllocator(Device const& device);
+        TransferCommandAllocator(Device const& device);        
     };
 
     class ComputeCommandAllocator: public CommandAllocator {

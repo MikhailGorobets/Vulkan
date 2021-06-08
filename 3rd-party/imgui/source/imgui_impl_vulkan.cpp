@@ -136,6 +136,7 @@ public:
     }
 
     auto DrawDataUpdate(uint32_t frameIndex) -> void {
+        assert(frameIndex < std::size(m_PerFrame));
         ImDrawData* pImGuiDrawData = ImGui::GetDrawData();
 
         if (pImGuiDrawData->TotalVtxCount > 0) {
@@ -206,6 +207,7 @@ public:
     }
 
     auto DrawFrame(vk::CommandBuffer commandBuffer, uint32_t frameIndex) -> void {
+        assert(frameIndex < std::size(m_PerFrame));
         ImDrawData* pImGuiDrawData = ImGui::GetDrawData();
 
         const int32_t frameBufferWidth = static_cast<int32_t>(pImGuiDrawData->DisplaySize.x * pImGuiDrawData->FramebufferScale.x);

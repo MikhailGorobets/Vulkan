@@ -160,6 +160,10 @@ namespace HAL {
 
     Device::~Device() = default;
 
+    auto Device::GetTransferCommandQueue() const -> const TransferCommandQueue* {
+        return m_pInternal->GetTransferCommandQueue();
+    }
+
     auto Device::GetComputeCommandQueue() const -> const ComputeCommandQueue* {
        return m_pInternal->GetComputeCommandQueue();
     }

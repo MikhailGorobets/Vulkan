@@ -4,43 +4,47 @@
 #include <HAL/Device.hpp>
 #include <HAL/SwapChain.hpp>
 #include <vulkan/vulkan_decl.h>
+#include <queue>
 
 namespace HAL {
     class SwapChain::Internal {
     public:
+        friend class CommandQueue;
+    public:
         Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
         
         ~Internal();
-
-        auto AcquireNextImage() -> void;
         
-        auto Present(Fence& fence) -> void;
-          
-        auto Resize(uint32_t width, uint32_t height) -> void;     
+        auto Acquire() -> void;
+
+        auto Release() -> void;
 
         auto GetFormat() const -> vk::Format { return m_SurfaceFormat.format; }
 
-        auto GetCurrentImage() const -> vk::Image { return m_SwapChainImages[m_CurrentImageIndex]; }        
+        auto GetImage(uint32_t frameID) const -> vk::Image { return m_SwapChainImages[frameID]; }        
 
-        auto GetCurrentImageView() const -> vk::ImageView { return *m_SwapChainImageViews[m_CurrentImageIndex]; };
+        auto GetImageView(uint32_t frameID) const -> vk::ImageView { return *m_SwapChainImageViews[frameID]; };
         
         auto GetSwapChain() const -> vk::SwapchainKHR { return *m_pSwapChain; }
+        
+        auto GetDevice() const -> vk::Device { return m_Device; }
+
+        auto GetSemaphoreAvailable() const -> vk::Semaphore { return *m_SemaphoresAvailable[m_BufferIndices.front()]; }
+
+        auto GetSemaphoreFinished() const -> vk::Semaphore { return *m_SemaphoresFinished[m_BufferIndices.front()]; }
 
     private:
-        auto CreateSurface() -> void;
+        auto CreateSurface(Device const& device) -> void;
 
         auto CreateSwapChain(uint32_t width, uint32_t height) -> void;
         
-        auto CreateSyncPrimitives() -> void;
-
-        auto WaitAcquiredFencesAndReset() -> void;
+        auto CreateSyncPrimitives() -> void;      
 
     private:
-        vk::Instance        m_Instance = {};
-        vk::Device          m_Device   = {};
-        vk::PhysicalDevice  m_PhysicalDevice = {};
-        vk::Queue           m_PresentQueue = {};
-        uint32_t            m_QueueFamilyIndex = {};
+        vk::Instance          m_Instance = {};
+        vk::Device            m_Device   = {};
+        vk::PhysicalDevice    m_PhysicalDevice = {};
+        std::vector<uint32_t> m_QueueFamilyIndices = {};
       
         HWND                   m_WindowHandle = {};
         vk::UniqueSurfaceKHR   m_pSurface = {};
@@ -54,12 +58,12 @@ namespace HAL {
         std::vector<vk::UniqueImageView> m_SwapChainImageViews = {};
         
         uint32_t m_BufferCount = {};
-        uint32_t m_CurrentBufferIndex = {};
-        uint32_t m_CurrentImageIndex = {};
-        
-        std::vector<vk::UniqueSemaphore> m_SwapChainSemaphoresAvailable = {};
-        std::vector<vk::UniqueSemaphore> m_SwapChainSemaphoresFinished = {};
-        
+        uint32_t m_BufferIndex = {};
+      
+        std::vector<vk::UniqueSemaphore> m_SemaphoresAvailable = {};
+        std::vector<vk::UniqueSemaphore> m_SemaphoresFinished = {};
+        std::queue<uint32_t>             m_BufferIndices = {};        
+ 
         bool m_IsVSyncEnabled = {};
         bool m_IsSRGBEnabled = {};             
     };

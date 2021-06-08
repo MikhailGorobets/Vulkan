@@ -10,10 +10,15 @@ namespace HAL {
         auto Signal(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
 
         auto Wait(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
+
+        auto NextImage(SwapChain const& swapChain, Fence const& fence, std::optional<uint64_t> signalValue = std::nullopt) const -> uint32_t;
+
+        auto Present(SwapChain const& swapChain, uint32_t frameID, Fence const& fence, std::optional<uint64_t> waitValue = std::nullopt) const -> void;
         
         auto WaitIdle() const -> void;
   
-        auto GetVkQueue() const -> vk::Queue;
+        auto GetVkQueue() const -> vk::Queue;      
+
     private:     
         Internal_Ptr<Internal, InternalSize_CommandQueue> m_pInternal;   
     };

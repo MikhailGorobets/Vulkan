@@ -28,7 +28,7 @@
 #include <HAL/SwapChain.hpp>
 #include <HAL/Fence.hpp>
 #include <HAL/CommandQueue.hpp>
-//#include <HAL/CommandAllocator.hpp>
+#include <HAL/CommandAllocator.hpp>
 //#include <HAL/CommandList.hpp>
 //#include <HAL/ShaderCompiler.hpp>
 
@@ -95,6 +95,18 @@ private:
         return false;
     }
 };
+
+
+class SyncPrimirivesPool {
+public:
+    auto AcqureFence() -> HAL::Fence;
+
+    auto ReleaseFence(HAL::Fence&) -> void;
+    
+};
+
+
+
 
 class MemoryStatisticGPU {
 public:
@@ -228,9 +240,6 @@ namespace HAL {
         uint32_t                        AttachmentCount = {};
         const RenderPassAttachmentInfo* pAttachments = {};
         vk::Rect2D                      RenderArea = {};
-        uint32_t                        FramebufferWidth = {};
-        uint32_t                        FramebufferHeight = {};
-        uint32_t                        FramebufferLayers = {};
     };
     
     struct AllocatorCreateInfo {    
@@ -441,7 +450,16 @@ namespace HAL {
             frameBufferImageViews.reserve(std::size(m_AttachmentsFormat));    
             frameBufferClearValues.reserve(std::size(m_AttachmentsFormat));           
     
+            uint32_t width = 0;
+            uint32_t height = 0;
+            uint32_t layerCount = 0;
+            
+
             for(size_t index = 0; index < std::size(m_AttachmentsFormat); index++) {
+                width = std::max(width, beginInfo.pAttachments[index].Width);
+                height = std::max(height, beginInfo.pAttachments[index].Height);
+                layerCount = std::max(layerCount, beginInfo.pAttachments[index].LayerCount);
+
                 vk::FramebufferAttachmentImageInfo framebufferAttachmentImageInfo = {
                     .usage = beginInfo.pAttachments[index].ImageUsage, 
                     .width = beginInfo.pAttachments[index].Width,
@@ -455,7 +473,7 @@ namespace HAL {
                 frameBufferClearValues.push_back(beginInfo.pAttachments[index].ClearValue);
             }
    
-            FrameBufferCacheKey key = { std::move(frameBufferAttanchments), beginInfo.FramebufferWidth, beginInfo.FramebufferHeight, beginInfo.FramebufferLayers };           
+            FrameBufferCacheKey key = { std::move(frameBufferAttanchments), width, height, layerCount };           
          
             if (m_FrameBufferCache.find(key) == m_FrameBufferCache.end()){
                  vk::StructureChain<vk::FramebufferCreateInfo, vk::FramebufferAttachmentsCreateInfo> framebufferCI = {
@@ -463,9 +481,9 @@ namespace HAL {
                          .flags = vk::FramebufferCreateFlagBits::eImageless,
                          .renderPass = *m_pRenderPass,
                          .attachmentCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
-                         .width  = beginInfo.FramebufferWidth,
-                         .height = beginInfo.FramebufferHeight,
-                         .layers = beginInfo.FramebufferLayers
+                         .width  = width,
+                         .height = height,
+                         .layers = layerCount
                      },
                      vk::FramebufferAttachmentsCreateInfo{ 
                          .attachmentImageInfoCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
@@ -557,7 +575,7 @@ int main(int argc, char* argv[]) {
     auto const WINDOW_TITLE = "Application Vulkan";
     auto const WINDOW_WIDTH  = 1920;
     auto const WINDOW_HEIGHT = 1280;
-    auto const BUFFER_COUNT  = 3u;
+    auto const BUFFER_COUNT  = 2u;
  
     struct GLFWScoped {
          GLFWScoped() { 
@@ -583,22 +601,27 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }
     
-    std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
+    std::shared_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
             .Width = WINDOW_WIDTH,
             .Height = WINDOW_HEIGHT,
-            .BufferCount = BUFFER_COUNT,
             .WindowHandle = glfwGetWin32Window(pWindow.get()),
             .IsSRGB = true,
             .IsVSync = false
         };
-        pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
+        pHALSwapChain = std::make_shared<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
+
+    const HAL::GraphicsCommandQueue* pHALGraphicsCommandQueue = pHALDevice->GetGraphicsCommandQueue();
+    const HAL::ComputeCommandQueue*  pHALComputeCommandQueue  = pHALDevice->GetComputeCommandQueue();
+    const HAL::TransferCommandQueue* pHALTransferCommandQueue = pHALDevice->GetTransferCommandQueue();
+
+    std::unique_ptr<HAL::GraphicsCommandAllocator> pHALCommandAllocator = std::make_unique<HAL::GraphicsCommandAllocator>(*pHALDevice);
+
 
     MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
     MemoryStatisticCPU memoryCPU;
     
-
     std::unique_ptr<HAL::MemoryAllocator> pHALAllocator; {
         HAL::AllocatorCreateInfo allocatorCI = {
             .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget,
@@ -646,12 +669,12 @@ int main(int argc, char* argv[]) {
         pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
 
-    auto pCommandPool = pHALDevice->GetVkDevice().createCommandPoolUnique(vk::CommandPoolCreateInfo { .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = 0 });
+    auto pCommandPool = pHALCommandAllocator->GetVkCommandPool();
 
-    auto pCommandBuffer = pHALDevice->GetVkDevice().allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{ .commandPool = *pCommandPool, .commandBufferCount = BUFFER_COUNT });
+    auto pCommandBuffer = pHALDevice->GetVkDevice().allocateCommandBuffersUnique(vk::CommandBufferAllocateInfo{ .commandPool = pCommandPool, .commandBufferCount = BUFFER_COUNT });
 
-   //
-   // 
+   
+    
    // HAL::ShaderCompiler compiler = { HAL::ShaderCompilerCreateInfo{ .ShaderModelVersion = HAL::ShaderModel::SM_6_5, .IsDebugMode = true } };
    //
    // vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
@@ -792,11 +815,12 @@ int main(int argc, char* argv[]) {
    // }
    //
    // 
-
-    std::vector<std::unique_ptr<HAL::Fence>> fences;
+    std::vector<std::unique_ptr<HAL::Fence>> HALFences;
     for(size_t index = 0; index < BUFFER_COUNT; index++) {
-        fences.push_back(std::move(std::make_unique<HAL::Fence>(*pHALDevice, 0)));
+        HALFences.push_back(std::make_unique<HAL::Fence>(*pHALDevice, 0));
     }
+
+    
    
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -810,18 +834,11 @@ int main(int argc, char* argv[]) {
     ImGui_ImplGlfw_InitForVulkan(pWindow.get(), true);
     ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALAllocator->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass(), BUFFER_COUNT);
 
-    glfwSetWindowUserPointer(pWindow.get(), pHALSwapChain.get());
-    glfwSetWindowSizeCallback(pWindow.get(), [](GLFWwindow* pWindow, int32_t width, int32_t height)->void {
-        auto pSwapChain = reinterpret_cast<HAL::SwapChain*>(glfwGetWindowUserPointer(pWindow));
-        pSwapChain->Resize(width, height);
-    });
-
 
     float CPUFrameTime = 0.0f;
     float GPUFrameTime = 0.0f;
-   
-    const HAL::GraphicsCommandQueue* pHALCommandQueue = pHALDevice->GetGraphicsCommandQueue();
-  
+     
+
     while (!glfwWindowShouldClose(pWindow.get())) {
         auto const timestampT0 = std::chrono::high_resolution_clock::now();
    
@@ -935,31 +952,31 @@ int main(int argc, char* argv[]) {
         int32_t width  = 0;
         int32_t height = 0;
         glfwGetWindowSize(pWindow.get(), &width, &height);
+        
+        static uint64_t frameCount = 0;
+        uint64_t bufferID = frameCount++ % BUFFER_COUNT;
 
-        static uint64_t frameID = 0;
-        uint64_t currentBufferIndex = frameID++ % BUFFER_COUNT;    
-
-        //Acquire Image 
-        pHALSwapChain->AcquireNextImage();
-
+      
+        //Acquire Image
+        uint32_t frameID = pHALGraphicsCommandQueue->NextImage(*pHALSwapChain, *HALFences[bufferID], HALFences[bufferID]->Increment());
+   
         //Wait until the previous frame is finished
-        if (!fences[currentBufferIndex]->IsCompleted())        
-            fences[currentBufferIndex]->Wait(fences[currentBufferIndex]->GetExpectedValue());
+        if (!HALFences[bufferID]->IsCompleted())        
+            HALFences[bufferID]->Wait(HALFences[bufferID]->GetExpectedValue());
+
 
         //Render pass
-        //....
-
         vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
         vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
 
-        pCommandBuffer[currentBufferIndex]->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        pCommandBuffer[bufferID]->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse });
         {
                     
             HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
                 HAL::RenderPassAttachmentInfo {
-                    .ImageView =  pHALSwapChain->GetCurrentImageView(),
+                    .ImageView =  pHALSwapChain->GetImageView(frameID),
                     .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 1.0f, 0.0f, 0.0f, 1.0f } }},
+                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 0.1f, 0.1f, 0.1f, 1.0f } }},
                     .Width = static_cast<uint32_t>(width),
                     .Height = static_cast<uint32_t>(height),
                     .LayerCount = 1            
@@ -969,34 +986,23 @@ int main(int argc, char* argv[]) {
             HAL::RenderPassBeginInfo renderPassBeginInfo = {
                 .AttachmentCount = _countof(renderPassAttachments),
                 .pAttachments = renderPassAttachments,
-                .RenderArea = scissor,
-                .FramebufferWidth  = static_cast<uint32_t>(width),
-                .FramebufferHeight = static_cast<uint32_t>(height),
-                .FramebufferLayers = 1            
+                .RenderArea = scissor       
             };       
         
-            pHALRenderPass->BeginRenderPass(*pCommandBuffer[currentBufferIndex], renderPassBeginInfo, vk::SubpassContents::eInline);           
-            
-            ImGui_ImplVulkan_NewFrame(*pCommandBuffer[currentBufferIndex], currentBufferIndex);
-
-            pHALRenderPass->EndRenderPass(*pCommandBuffer[currentBufferIndex]);
+            pHALRenderPass->BeginRenderPass(*pCommandBuffer[bufferID], renderPassBeginInfo, vk::SubpassContents::eInline);                  
+            ImGui_ImplVulkan_NewFrame(*pCommandBuffer[bufferID], bufferID);                   
+            pHALRenderPass->EndRenderPass(*pCommandBuffer[bufferID]);
         }
-        pCommandBuffer[currentBufferIndex]->end();
+        pCommandBuffer[bufferID]->end();
 
 
         //Execute command List
-        pHALCommandQueue->GetVkQueue().submit(vk::SubmitInfo { .commandBufferCount = 1, .pCommandBuffers = pCommandBuffer[currentBufferIndex].getAddressOf() }, nullptr);
+        pHALGraphicsCommandQueue->Wait(*HALFences[bufferID], HALFences[bufferID]->GetExpectedValue());  
+        pHALGraphicsCommandQueue->GetVkQueue().submit(vk::SubmitInfo { .commandBufferCount = 1, .pCommandBuffers = pCommandBuffer[bufferID].getAddressOf() }, { });
+        pHALGraphicsCommandQueue->Signal(*HALFences[bufferID], HALFences[bufferID]->Increment());
 
-
-        //Signal and increment the fence value
-
-        fences[currentBufferIndex]->Increment();
-        pHALCommandQueue->Signal(*fences[currentBufferIndex]);
-
-        //Wait fence and Present
-        pHALSwapChain->Present(*fences[currentBufferIndex]);        
-
-
+        //Wait fence and present
+        pHALGraphicsCommandQueue->Present(*pHALSwapChain, frameID, *HALFences[bufferID]);
 
 
    //
@@ -1076,8 +1082,8 @@ int main(int argc, char* argv[]) {
         CPUFrameTime = std::chrono::duration<float, std::milli>(timestampT1 - timestampT0).count();
         GPUFrameTime = 0.0f;
     }
+    
 
- 
     pHALDevice->WaitIdle();
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -1085,3 +1091,4 @@ int main(int argc, char* argv[]) {
     ImGui::DestroyContext();
 
 }
+

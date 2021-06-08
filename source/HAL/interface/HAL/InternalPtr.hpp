@@ -57,15 +57,31 @@ namespace HAL {
 }
 
 namespace HAL {
+
+
+#ifdef _DEBUG
+
     constexpr size_t InternalSize_Adapter   = 2496;
     constexpr size_t InternalSize_Instance  = 128; 
     constexpr size_t InternalSize_Device    = 200;
-    constexpr size_t InternalSize_SwapChain = 328;
+    constexpr size_t InternalSize_SwapChain = 376;
     constexpr size_t InternalSize_Fence     = 40;
     constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
-    constexpr size_t InternalSize_CommandAllocator = 64;
+    constexpr size_t InternalSize_CommandAllocator = 32;
     constexpr size_t InternalSize_CommandList = 64;
+#else
+    constexpr size_t InternalSize_Adapter   = 2480;
+    constexpr size_t InternalSize_Instance  = 104; 
+    constexpr size_t InternalSize_Device    = 176;
+    constexpr size_t InternalSize_SwapChain = 336;
+    constexpr size_t InternalSize_Fence     = 40;
+    constexpr size_t InternalSize_Compiler  = 64;
+    constexpr size_t InternalSize_CommandQueue = 8;
+    constexpr size_t InternalSize_CommandAllocator = 32;
+    constexpr size_t InternalSize_CommandList = 64;
+#endif
+
 }
 
 
@@ -104,4 +120,5 @@ namespace vk {
     class CommandBuffer;   
     class PipelineCache;
     class Semaphore;
+    class ImageView;
 }
