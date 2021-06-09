@@ -106,8 +106,8 @@ namespace HAL {
     class TransferCommandList;
     class ComputeCommandList;
     class GraphicsCommandList;
-
     class ShaderCompiler;
+   
 }
 
 namespace vk {
@@ -121,4 +121,5 @@ namespace vk {
     class PipelineCache;
     class Semaphore;
     class ImageView;
+    enum class Format;
 }

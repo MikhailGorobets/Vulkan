@@ -4,7 +4,6 @@
 #include <HAL/CommandAllocator.hpp>
 
 namespace HAL {
-
     class CommandAllocator::Internal {
     public:
          Internal(Device const& device, uint32_t queueFamilyIndex);
@@ -12,7 +11,5 @@ namespace HAL {
          auto GetVkCommandPool() const -> vk::CommandPool;
     private:
         vk::UniqueCommandPool m_pCommandPool;
-    };
-    
-    
+    };  
 }

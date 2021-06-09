@@ -110,12 +110,16 @@ namespace HAL {
         m_SurfaceCapabilities = m_PhysicalDevice.getSurfaceCapabilitiesKHR(*m_pSurface);
         m_BufferCount = std::min(m_SurfaceCapabilities.minImageCount + 1, m_SurfaceCapabilities.maxImageCount);
 
+
         vk::SwapchainCreateInfoKHR swapchainCI = {
             .surface = *m_pSurface,
             .minImageCount = m_BufferCount,
             .imageFormat = m_SurfaceFormat.format,
             .imageColorSpace = m_SurfaceFormat.colorSpace,
-            .imageExtent = { .width = width, .height = height },
+            .imageExtent = { 
+                .width = std::clamp(width, m_SurfaceCapabilities.minImageExtent.width, m_SurfaceCapabilities.maxImageExtent.width), 
+                .height = std::clamp(height, m_SurfaceCapabilities.minImageExtent.height, m_SurfaceCapabilities.maxImageExtent.height) 
+            },
             .imageArrayLayers = 1,
             .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
             .imageSharingMode = std::size(m_QueueFamilyIndices) > 1 ? vk::SharingMode::eConcurrent : vk::SharingMode::eExclusive,
@@ -169,6 +173,11 @@ namespace HAL {
     SwapChain::SwapChain(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo) : m_pInternal(instance, device, createInfo) { }
 
     SwapChain::~SwapChain() = default;
+
+    auto SwapChain::GetFormat() const -> vk::Format
+    {
+        return m_pInternal->GetFormat();
+    }
 
     auto SwapChain::GetImageView(uint32_t imageID) const -> vk::ImageView {
         return m_pInternal->GetImageView(imageID);

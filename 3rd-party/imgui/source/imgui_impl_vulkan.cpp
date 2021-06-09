@@ -692,6 +692,6 @@ void ImGui_ImplVulkan_Shutdown() {
 }
 
 void ImGui_ImplVulkan_NewFrame(vk::CommandBuffer commandBuffer, uint32_t frameIndex) {
-    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex);
+    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex);  
     g_pImGuiImplementVulkan->DrawFrame(commandBuffer, frameIndex);
 }

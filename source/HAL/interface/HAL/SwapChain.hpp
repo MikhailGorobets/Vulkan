@@ -18,7 +18,9 @@ namespace HAL {
         SwapChain(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
         
         ~SwapChain();
-        
+
+        auto GetFormat() const -> vk::Format;        
+
         auto GetImageView(uint32_t imageID) const -> vk::ImageView;         
 
         auto GetVkSwapChain() const -> vk::SwapchainKHR;

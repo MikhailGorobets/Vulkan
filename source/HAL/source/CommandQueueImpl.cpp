@@ -52,28 +52,25 @@ namespace HAL {
 
         uint32_t frameID = pSwapChain->GetDevice().acquireNextImageKHR(pSwapChain->GetSwapChain(), std::numeric_limits<uint64_t>::max(), pSwapChain->GetSemaphoreAvailable(), nullptr);
            
-        vk::Semaphore waitSemaphores[] = { pSwapChain->GetSemaphoreAvailable() };       
-        vk::Semaphore signalSemaphores[] = { fence.GetVkSemaphore() };
+        vk::Semaphore pWaitSemaphores[] = { pSwapChain->GetSemaphoreAvailable() };       
+        vk::Semaphore pSignalSemaphores[] = { fence.GetVkSemaphore() };
 
-        uint64_t waitSemaphoreValues[] = { 0 };
-        uint64_t signalSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) }; 
+        uint64_t pSignalSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) }; 
       
-        vk::PipelineStageFlags stageMask[] = { vk::PipelineStageFlagBits::eTransfer };
+        vk::PipelineStageFlags pStageMask[] = { vk::PipelineStageFlagBits::eTransfer };
 
         vk::TimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {
-        //    .waitSemaphoreValueCount = _countof(waitSemaphoreValues),
-        //    .pWaitSemaphoreValues = waitSemaphoreValues,
-            .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
-            .pSignalSemaphoreValues = signalSemaphoreValues
+            .signalSemaphoreValueCount = _countof(pSignalSemaphoreValues),
+            .pSignalSemaphoreValues = pSignalSemaphoreValues
         };
 
         vk::SubmitInfo submitInfo = {
             .pNext = &timelineSemaphoreSubmitInfo,
-            .waitSemaphoreCount = _countof(waitSemaphores),
-            .pWaitSemaphores = waitSemaphores,
-            .pWaitDstStageMask = stageMask,
-            .signalSemaphoreCount = _countof(signalSemaphores),
-            .pSignalSemaphores = signalSemaphores         
+            .waitSemaphoreCount = _countof(pWaitSemaphores),
+            .pWaitSemaphores = pWaitSemaphores,
+            .pWaitDstStageMask = pStageMask,
+            .signalSemaphoreCount = _countof(pSignalSemaphores),
+            .pSignalSemaphores = pSignalSemaphores         
         };        
         m_Queue.submit(submitInfo, {});  
         return frameID;
@@ -82,39 +79,36 @@ namespace HAL {
     auto CommandQueue::Internal::Present(SwapChain const& swapChain, uint32_t frameID, Fence const& fence, std::optional<uint64_t> value) const -> void {
         auto pSwapChain = (SwapChain::Internal*)(&swapChain);
 
-        uint64_t signalSemaphoreValues[] = { 0 };
-        uint64_t waitSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) };
+        uint64_t pWaitSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) };
 
-        vk::Semaphore signalSemaphores[] = { pSwapChain->GetSemaphoreFinished() }; 
-        vk::Semaphore waitSemahores[] = { fence.GetVkSemaphore() };
+        vk::Semaphore pSignalSemaphores[] = { pSwapChain->GetSemaphoreFinished() }; 
+        vk::Semaphore pWaitSemahores[] = { fence.GetVkSemaphore() };
         
-        vk::PipelineStageFlags stageMask[] = { vk::PipelineStageFlagBits::eTransfer };
+        vk::PipelineStageFlags pStageMask[] = { vk::PipelineStageFlagBits::eTransfer };
         
         vk::TimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {
-            .waitSemaphoreValueCount = _countof(waitSemaphoreValues),
-            .pWaitSemaphoreValues = waitSemaphoreValues,      
-       //     .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
-        //    .pSignalSemaphoreValues = signalSemaphoreValues
+            .waitSemaphoreValueCount = _countof(pWaitSemaphoreValues),
+            .pWaitSemaphoreValues = pWaitSemaphoreValues     
         };
 
         vk::SubmitInfo submitInfo = {
             .pNext = &timelineSemaphoreSubmitInfo,
-            .waitSemaphoreCount =  _countof(waitSemahores),
-            .pWaitSemaphores = waitSemahores,
-            .pWaitDstStageMask = stageMask,
-            .signalSemaphoreCount = _countof(signalSemaphores),
-            .pSignalSemaphores = signalSemaphores,           
+            .waitSemaphoreCount =  _countof(pWaitSemahores),
+            .pWaitSemaphores = pWaitSemahores,
+            .pWaitDstStageMask = pStageMask,
+            .signalSemaphoreCount = _countof(pSignalSemaphores),
+            .pSignalSemaphores = pSignalSemaphores,           
         };            
 
         m_Queue.submit(submitInfo, {});
     
-        vk::SwapchainKHR swapChains[] = { pSwapChain->GetSwapChain() };
+        vk::SwapchainKHR pSwapChains[] = { pSwapChain->GetSwapChain() };
         
         vk::PresentInfoKHR presentInfo = {
-            .waitSemaphoreCount = _countof(signalSemaphores),
-            .pWaitSemaphores = signalSemaphores,
-            .swapchainCount = _countof(swapChains),
-            .pSwapchains = swapChains,
+            .waitSemaphoreCount = _countof(pSignalSemaphores),
+            .pWaitSemaphores = pSignalSemaphores,
+            .swapchainCount = _countof(pSwapChains),
+            .pSwapchains = pSwapChains,
             .pImageIndices = &frameID,
         };
 

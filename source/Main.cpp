@@ -575,7 +575,7 @@ int main(int argc, char* argv[]) {
     auto const WINDOW_TITLE = "Application Vulkan";
     auto const WINDOW_WIDTH  = 1920;
     auto const WINDOW_HEIGHT = 1280;
-    auto const BUFFER_COUNT  = 2u;
+    auto const BUFFER_COUNT  = 3u;
  
     struct GLFWScoped {
          GLFWScoped() { 
@@ -601,7 +601,7 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }
     
-    std::shared_ptr<HAL::SwapChain> pHALSwapChain; {
+    std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
             .Width = WINDOW_WIDTH,
             .Height = WINDOW_HEIGHT,
@@ -609,7 +609,7 @@ int main(int argc, char* argv[]) {
             .IsSRGB = true,
             .IsVSync = false
         };
-        pHALSwapChain = std::make_shared<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
+        pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
 
     const HAL::GraphicsCommandQueue* pHALGraphicsCommandQueue = pHALDevice->GetGraphicsCommandQueue();
@@ -638,7 +638,7 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
             vk::AttachmentDescription{
-                .format = vk::Format::eR8G8B8A8Srgb,
+                .format = pHALSwapChain->GetFormat(),
                 .samples = vk::SampleCountFlagBits::e1,
                 .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
@@ -816,12 +816,9 @@ int main(int argc, char* argv[]) {
    //
    // 
     std::vector<std::unique_ptr<HAL::Fence>> HALFences;
-    for(size_t index = 0; index < BUFFER_COUNT; index++) {
+    for(size_t index = 0; index < BUFFER_COUNT; index++) 
         HALFences.push_back(std::make_unique<HAL::Fence>(*pHALDevice, 0));
-    }
-
     
-   
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImPlot::CreateContext();
@@ -838,6 +835,28 @@ int main(int argc, char* argv[]) {
     float CPUFrameTime = 0.0f;
     float GPUFrameTime = 0.0f;
      
+    struct WindowUserData {
+        const HAL::CommandQueue* pCommandQueue;
+        HAL::SwapChain*          pSwapChain;
+        HAL::Instance*           pInstance;
+        HAL::Device*             pDevice;
+    } GLFWUserData = { pHALComputeCommandQueue, pHALSwapChain.get(), pHALInstance.get(), pHALDevice.get() };
+
+    glfwSetWindowUserPointer(pWindow.get(), &GLFWUserData);
+    glfwSetWindowSizeCallback(pWindow.get(), [](GLFWwindow* pWindow, int32_t width, int32_t height)-> void {
+        HAL::SwapChainCreateInfo swapChainCI = {
+            .Width = static_cast<uint32_t>(width),
+            .Height = static_cast<uint32_t>(height),
+            .WindowHandle = glfwGetWin32Window(pWindow),
+            .IsSRGB = true,
+            .IsVSync = false
+        };
+
+        auto pUserData = reinterpret_cast<WindowUserData*>(glfwGetWindowUserPointer(pWindow));
+        pUserData->pCommandQueue->WaitIdle();
+        pUserData->pSwapChain->~SwapChain();
+        new(pUserData->pSwapChain) HAL::SwapChain(*pUserData->pInstance, *pUserData->pDevice, swapChainCI);
+    });  
 
     while (!glfwWindowShouldClose(pWindow.get())) {
         auto const timestampT0 = std::chrono::high_resolution_clock::now();
@@ -989,8 +1008,9 @@ int main(int argc, char* argv[]) {
                 .RenderArea = scissor       
             };       
         
-            pHALRenderPass->BeginRenderPass(*pCommandBuffer[bufferID], renderPassBeginInfo, vk::SubpassContents::eInline);                  
-            ImGui_ImplVulkan_NewFrame(*pCommandBuffer[bufferID], bufferID);                   
+            pHALRenderPass->BeginRenderPass(*pCommandBuffer[bufferID], renderPassBeginInfo, vk::SubpassContents::eInline);      
+            for(size_t index = 0; index < 1; index++)            
+                ImGui_ImplVulkan_NewFrame(*pCommandBuffer[bufferID], bufferID);                   
             pHALRenderPass->EndRenderPass(*pCommandBuffer[bufferID]);
         }
         pCommandBuffer[bufferID]->end();
@@ -1002,7 +1022,7 @@ int main(int argc, char* argv[]) {
         pHALGraphicsCommandQueue->Signal(*HALFences[bufferID], HALFences[bufferID]->Increment());
 
         //Wait fence and present
-        pHALGraphicsCommandQueue->Present(*pHALSwapChain, frameID, *HALFences[bufferID]);
+        pHALComputeCommandQueue->Present(*pHALSwapChain, frameID, *HALFences[bufferID]);
 
 
    //

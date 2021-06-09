@@ -8,7 +8,11 @@ namespace HAL {
         class Internal;
     protected:
         CommandList(CommandAllocator& allocator);
-    
+
+        auto Begin() -> void;
+        
+        auto End() -> void;    
+
         auto GetVkCommandBuffer() const -> vk::CommandBuffer;
     private:     
         Internal_Ptr<Internal, InternalSize_CommandList> m_pInternal;   
