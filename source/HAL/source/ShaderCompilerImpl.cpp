@@ -2,7 +2,6 @@
 #include "../include/ShaderCompilerImpl.hpp"
 #include <fmt/format.h>
 
-
 HAL::ShaderCompiler::Internal::Internal(ShaderCompilerCreateInfo const& createInfo) {
      ThrowIfFailed(m_DxcLoader.Initialize());
      ThrowIfFailed(m_DxcLoader.CreateInstance(CLSID_DxcUtils, &m_pDxcUtils));

@@ -8,7 +8,7 @@ namespace HAL {
     class Fence::Internal {
     public:
         Internal(Device const& device, uint64_t value);
-    
+        
         auto Signal(uint64_t value) const -> void;
 
         auto Wait(uint64_t value) const -> void;
@@ -23,7 +23,7 @@ namespace HAL {
     
         auto GetVkSemaphore() const -> vk::Semaphore;
     private:
-        vk::UniqueSemaphore   m_pSemaphore = {};
-        std::atomic<uint64_t> m_ExpectedValue = 0;
+        vk::UniqueSemaphore m_pSemaphore = {};
+        uint64_t            m_ExpectedValue = 0;
     };
 }

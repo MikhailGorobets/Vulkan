@@ -3,12 +3,16 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-    class Fence {
+    class Fence: NonCopyable {
     public:
         class Internal;
     public:
         Fence(Device const& device, uint64_t value);
         
+        Fence(Fence&&);
+        
+        Fence& operator=(Fence&&);        
+
         ~Fence();
 
         auto Signal(uint64_t value) const -> void;
@@ -26,6 +30,6 @@ namespace HAL {
         auto GetVkSemaphore() const -> vk::Semaphore;    
     
     private:     
-        Internal_Ptr<Internal, InternalSize_Fence> m_pInternal;               
+        InternalPtr<Internal, InternalSize_Fence> m_pInternal;               
     };
 }

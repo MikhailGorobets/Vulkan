@@ -11,12 +11,16 @@ namespace HAL {
         bool     IsVSync = {};
     };
     
-    class SwapChain {
+    class SwapChain: NonCopyable {
     public:
         class Internal;
     public:      
         SwapChain(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
         
+        SwapChain(SwapChain&&);
+
+        SwapChain& operator=(SwapChain&&);
+
         ~SwapChain();
 
         auto Resize(uint32_t width, uint32_t height) -> void;
@@ -28,6 +32,6 @@ namespace HAL {
         auto GetVkSwapChain() const -> vk::SwapchainKHR;
 
     private:      
-        Internal_Ptr<Internal, InternalSize_SwapChain> m_pInternal;   
+        InternalPtr<Internal, InternalSize_SwapChain> m_pInternal;   
     };
 }

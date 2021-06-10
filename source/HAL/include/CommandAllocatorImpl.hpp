@@ -9,6 +9,8 @@ namespace HAL {
          Internal(Device const& device, uint32_t queueFamilyIndex);
         
          auto GetCommandPool() const -> vk::CommandPool;
+    
+         auto GetDevice() const -> vk::Device;
     private:
         vk::UniqueCommandPool m_pCommandPool;
     };  

@@ -7,19 +7,23 @@ namespace HAL {
       
     };
     
-    class Device {
+    class Device: NonCopyable {
     public:
         class Internal;
-    public:                 
+    public:       
         Device(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo);
+    
+        Device(Device&&);
+
+        Device& operator=(Device&&);        
 
         ~Device();
         
-        auto GetTransferCommandQueue() const -> std::observer_ptr<TransferCommandQueue>;
-        
-        auto GetComputeCommandQueue()  const -> std::observer_ptr<ComputeCommandQueue>;  
-
-        auto GetGraphicsCommandQueue() const -> std::observer_ptr<GraphicsCommandQueue>;
+        auto GetTransferCommandQueue() -> TransferCommandQueue&;
+                                     
+        auto GetComputeCommandQueue()  -> ComputeCommandQueue&;  
+                                     
+        auto GetGraphicsCommandQueue() -> GraphicsCommandQueue&;
       
         auto WaitIdle() -> void;
          
@@ -30,7 +34,7 @@ namespace HAL {
         auto GetVkPhysicalDevice() const -> vk::PhysicalDevice;
 
     private:     
-        Internal_Ptr<Internal, InternalSize_Device> m_pInternal;   
+        InternalPtr<Internal, InternalSize_Device> m_pInternal;   
     };
 }
  

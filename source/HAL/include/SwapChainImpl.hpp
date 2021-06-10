@@ -11,9 +11,7 @@ namespace HAL {
     public:
         friend class CommandQueue;
     public:
-        Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
-        
-        ~Internal();
+        Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);       
         
         auto Acquire() -> void;
 

@@ -8,11 +8,11 @@ namespace HAL {
    public:
         Internal(CommandAllocator const& allocator);
         
-        auto Begin() const -> void;
+        auto Begin() -> void;
         
-        auto End() const -> void;    
+        auto End() -> void;    
 
-        auto GetVkCommandBuffer() const -> vk::CommandBuffer;
+        auto GetVkCommandBuffer() const -> vk::CommandBuffer { return *m_pCommandBuffer; }
     private:
         vk::UniqueCommandBuffer m_pCommandBuffer;
     };  

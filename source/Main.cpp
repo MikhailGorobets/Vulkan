@@ -31,7 +31,6 @@
 #include <HAL/CommandAllocator.hpp>
 #include <HAL/CommandList.hpp>
 //#include <HAL/ShaderCompiler.hpp>
-#include <memory>
 
 
 struct ScrollingBuffer {
@@ -233,12 +232,11 @@ namespace HAL {
     };
     
     struct AllocatorCreateInfo {    
-        vma::AllocatorCreateFlags  Flags = {};
-        uint32_t                   FrameInUseCount = {};
-        vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};       
+        vma::AllocatorCreateFlags  Flags = {};  
+        vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};
+        uint32_t                   FrameInUseCount = {};       
     };
    
-
     class MemoryAllocator {
     public:
         MemoryAllocator(Instance const& instance, Device const& device, AllocatorCreateInfo const& createInfo) {
@@ -283,48 +281,65 @@ namespace HAL {
                 .instance = instance.GetVkInstance(),    
                 .vulkanApiVersion = VK_API_VERSION_1_2,         
             };    
-            m_pAllocator = vma::createAllocatorUnique(allocatorCI);    
+            m_pAllocator = vma::createAllocatorUnique(allocatorCI); 
+            m_FrameIndex = 0;
+            m_FrameCount = createInfo.FrameInUseCount;   
         }
         
+        auto NextFrame() -> void {
+            m_FrameIndex = m_FrameIndex++ % m_FrameCount;
+            m_pAllocator->setCurrentFrameIndex(m_FrameIndex);
+        }        
+
         auto GetVmaAllocator() const -> vma::Allocator { return *m_pAllocator; }        
 
     private:
         vma::UniqueAllocator m_pAllocator;
+        uint32_t             m_FrameIndex;
+        uint32_t             m_FrameCount;
     };
-//
-//    
-//
-//    
-//    struct BufferCreateInfo {
-//
-//    };
-//
-//    struct TextureCreateInfo {
-//
-//    };    
-//
-//    class Buffer {
-//    public:
-//        Buffer(MemoryAllocator const& allocator, BufferCreateInfo const& createInfo) {
-//
-//        }
-//
-//    private:
-//        vma::UniqueAllocation m_pAllocation;
-//        vk::UniqueBuffer      m_pBuffer;
-//    };
-//
-//    class Texture {
-//    public:
-//        Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) {
-//
-//        }
-//
-//    private:
-//        vma::UniqueAllocation m_pAllocation;
-//        vk::UniqueImage       m_pImage;
-//    };
-//
+ 
+    struct BufferCreateInfo {
+ 
+    };
+ 
+    struct TextureCreateInfo {
+        uint32_t   Width = 0;
+        uint32_t   Height = 0;
+        uint32_t   Depth = 0;
+        uint32_t   ArraySize = 1;
+        uint32_t   MipLevels = 1;
+        vk::Format Format;
+        
+    };    
+ 
+    class Buffer {
+    public:
+        Buffer(MemoryAllocator const& allocator, BufferCreateInfo const& createInfo) {
+            
+        }
+ 
+    private:
+        vma::UniqueAllocation m_pAllocation;
+        vk::UniqueBuffer      m_pBuffer;
+    };
+ 
+    class Texture {
+    public:
+        Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) {
+            vk::ImageCreateInfo imageCI = {
+                
+                .extent = { createInfo.Width, createInfo.Height, createInfo.Depth },
+                .arrayLayers = createInfo.ArraySize,
+                
+            };
+        }
+ 
+    private:
+        vma::UniqueAllocation m_pAllocation;
+        vk::UniqueImage       m_pImage;
+    };
+ 
 //
 //    struct ShaderByteCode {
 //        const char* pName = {};
@@ -588,8 +603,8 @@ int main(int argc, char* argv[]) {
            
         };   
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
-    }
-    
+    }    
+
     std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
             .Width = WINDOW_WIDTH,
@@ -601,9 +616,9 @@ int main(int argc, char* argv[]) {
         pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
 
-    auto pHALGraphicsCommandQueue = pHALDevice->GetGraphicsCommandQueue();
-    auto pHALComputeCommandQueue  = pHALDevice->GetComputeCommandQueue();
-    auto pHALTransferCommandQueue = pHALDevice->GetTransferCommandQueue();
+    auto pHALGraphicsCommandQueue = &pHALDevice->GetGraphicsCommandQueue();
+    auto pHALComputeCommandQueue  = &pHALDevice->GetComputeCommandQueue();
+    auto pHALTransferCommandQueue = &pHALDevice->GetTransferCommandQueue();
 
     auto pHALGraphicsCmdAllocator = std::make_unique<HAL::GraphicsCommandAllocator>(*pHALDevice);
     auto pHALComputeCmdAllocator  = std::make_unique<HAL::ComputeCommandAllocator>(*pHALDevice);
@@ -614,13 +629,13 @@ int main(int argc, char* argv[]) {
     
     std::unique_ptr<HAL::MemoryAllocator> pHALAllocator; {
         HAL::AllocatorCreateInfo allocatorCI = {
-            .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget,
-            .FrameInUseCount = BUFFER_COUNT,
+            .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget,          
             .DeviceMemoryCallbacks = {
                 .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
                 .pfnFree     = MemoryStatisticGPU::GPUFree,
                 .pUserData   = &memoryGPU,
-            }
+            },
+            .FrameInUseCount = BUFFER_COUNT
         };
         pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
     }
@@ -659,12 +674,12 @@ int main(int argc, char* argv[]) {
         pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
 
-    std::vector<std::unique_ptr<HAL::GraphicsCommandList>> HALCommandLists;
-    std::vector<std::unique_ptr<HAL::Fence>> HALFences;
-
+    std::vector<HAL::GraphicsCommandList> HALCommandLists;
+    std::vector<HAL::Fence> HALFences;
+   
     for(size_t index = 0; index < BUFFER_COUNT; index++) {
-        HALCommandLists.push_back(std::make_unique<HAL::GraphicsCommandList>(*pHALGraphicsCmdAllocator));
-        HALFences.push_back(std::make_unique<HAL::Fence>(*pHALDevice, 0));
+        HALCommandLists.push_back(HAL::GraphicsCommandList(*pHALGraphicsCmdAllocator));
+        HALFences.push_back(HAL::Fence(*pHALDevice, 0));
     }
 
    
@@ -827,12 +842,13 @@ int main(int argc, char* argv[]) {
     float GPUFrameTime = 0.0f;
      
     struct WindowUserData {
-        const HAL::CommandQueue* pCommandQueue;
-        HAL::SwapChain*          pSwapChain;
+        HAL::CommandQueue* pCommandQueue;
+        HAL::SwapChain*    pSwapChain;
     } GLFWUserData = { pHALComputeCommandQueue, pHALSwapChain.get() };
 
     glfwSetWindowUserPointer(pWindow.get(), &GLFWUserData);
     glfwSetWindowSizeCallback(pWindow.get(), [](GLFWwindow* pWindow, int32_t width, int32_t height)-> void {
+        glfwWaitEvents();
         auto pUserData = reinterpret_cast<WindowUserData*>(glfwGetWindowUserPointer(pWindow));
         pUserData->pCommandQueue->WaitIdle();
         pUserData->pSwapChain->Resize(width, height);
@@ -955,20 +971,24 @@ int main(int argc, char* argv[]) {
         static uint64_t frameCount = 0;
         uint64_t bufferID = frameCount++ % BUFFER_COUNT;
 
+        auto pHALFence = &HALFences[bufferID];
+        auto pHALCommandList = &HALCommandLists[bufferID];
+     
         //Wait until the previous frame is finished
-        if (!HALFences[bufferID]->IsCompleted())        
-            HALFences[bufferID]->Wait(HALFences[bufferID]->GetExpectedValue());
+        if (!pHALFence->IsCompleted())        
+            pHALFence->Wait(pHALFence->GetExpectedValue());
         
-        //Acquire Image
-        uint32_t frameID = pHALComputeCommandQueue->NextImage(*pHALSwapChain, *HALFences[bufferID], HALFences[bufferID]->Increment());
-   
+        //Acquire Image and signal fence
+        uint32_t frameID = pHALComputeCommandQueue->NextImage(*pHALSwapChain, *pHALFence, pHALFence->Increment());
+        pHALAllocator->NextFrame();
+     
         //Render pass
-        vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
-        vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
-
-        HALCommandLists[bufferID]->Begin();
+        pHALCommandList->Begin();
         {
-                    
+                  
+            vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
+            vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
+     
             HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
                 HAL::RenderPassAttachmentInfo {
                     .ImageView =  pHALSwapChain->GetImageView(frameID),
@@ -986,20 +1006,20 @@ int main(int argc, char* argv[]) {
                 .RenderArea = scissor       
             };       
         
-            pHALRenderPass->BeginRenderPass(HALCommandLists[bufferID]->GetVkCommandBuffer(), renderPassBeginInfo, vk::SubpassContents::eInline);               
-            ImGui_ImplVulkan_NewFrame(HALCommandLists[bufferID]->GetVkCommandBuffer(), bufferID);                   
-            pHALRenderPass->EndRenderPass(HALCommandLists[bufferID]->GetVkCommandBuffer());
+            pHALRenderPass->BeginRenderPass(pHALCommandList->GetVkCommandBuffer(), renderPassBeginInfo, vk::SubpassContents::eInline);               
+            ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer(), bufferID);                   
+            pHALRenderPass->EndRenderPass(pHALCommandList->GetVkCommandBuffer());
         }
-        HALCommandLists[bufferID]->End();
-
-
-        //Execute command List
-        pHALGraphicsCommandQueue->Wait(*HALFences[bufferID], HALFences[bufferID]->GetExpectedValue());  
-        pHALGraphicsCommandQueue->ExecuteCommandLists(HALCommandLists[bufferID].get(), 1);
-        pHALGraphicsCommandQueue->Signal(*HALFences[bufferID], HALFences[bufferID]->Increment());
-
+        pHALCommandList->End();
+     
+     
+        //Wait fence nad Execute command List
+        pHALGraphicsCommandQueue->Wait(*pHALFence, pHALFence->GetExpectedValue());  
+        pHALGraphicsCommandQueue->ExecuteCommandLists({ *pHALCommandList });
+        pHALGraphicsCommandQueue->Signal(*pHALFence, pHALFence->Increment());
+     
         //Wait fence and present
-        pHALComputeCommandQueue->Present(*pHALSwapChain, frameID, *HALFences[bufferID]);
+        pHALComputeCommandQueue->Present(*pHALSwapChain, frameID, *pHALFence);
 
 
    //

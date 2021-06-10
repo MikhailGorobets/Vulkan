@@ -1,12 +1,12 @@
-#include "..\include\CommandQueueImpl.hpp"
-#include "..\include\SwapChainImpl.hpp"
-#include "..\include\FenceImpl.hpp"
-#include "..\include\CommandListImpl.hpp"
+#include "../include/CommandQueueImpl.hpp"
+#include "../include/SwapChainImpl.hpp"
+#include "../include/FenceImpl.hpp"
+#include "../include/CommandListImpl.hpp"
 
 //TODO Lock
 
 namespace HAL {
-    CommandQueue::Internal::Internal(vk::Queue const& queue) : m_Queue(queue) {}
+    CommandQueue::Internal::Internal(vk::Queue queue) : m_Queue(queue) {}
 
     auto CommandQueue::Internal::Signal(Fence const& fence, std::optional<uint64_t> value) const -> void { 
        vk::Semaphore signalSemaphores[] = { fence.GetVkSemaphore() };
@@ -16,13 +16,11 @@ namespace HAL {
            .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
            .pSignalSemaphoreValues = signalSemaphoreValues
        };
-
        vk::SubmitInfo submitInfo = {
            .pNext = &timelineInfo,
            .signalSemaphoreCount  = _countof(signalSemaphores),
            .pSignalSemaphores = signalSemaphores
        };
-
        m_Queue.submit({submitInfo}, {});
     }
 
@@ -41,7 +39,6 @@ namespace HAL {
             .pWaitSemaphores = pWaitSemaphores,
             .pWaitDstStageMask = pWaitStages
         };
-        
         m_Queue.submit({ submitInfo }, {});    
     }
 
@@ -116,19 +113,6 @@ namespace HAL {
         pSwapChain->Release();
     }
 
-    auto CommandQueue::Internal::ExecuteCommandList(CommandList* pCmdLists, uint32_t count) const -> void {
-        std::vector<vk::CommandBuffer> commandBuffers(count);
-        for(size_t index = 0; index < count; index++)
-            commandBuffers.push_back(pCmdLists[index].GetVkCommandBuffer());
-      
-        vk::SubmitInfo submitInfo = {
-           .commandBufferCount = static_cast<uint32_t>(std::size(commandBuffers)),
-           .pCommandBuffers = std::data(commandBuffers),             
-        };            
-        m_Queue.submit(submitInfo, {});
-    }
-
-
     auto CommandQueue::Internal::WaitIdle() const -> void {
         m_Queue.waitIdle();        
     }
@@ -139,7 +123,9 @@ namespace HAL {
 }
 
 namespace HAL {
-  
+    CommandQueue::CommandQueue(CommandQueue&& rhs) noexcept : m_pInternal(std::move(rhs.m_pInternal)) {} 
+
+    CommandQueue& CommandQueue::operator=(CommandQueue&& rhs) noexcept { m_pInternal = std::move(rhs.m_pInternal); return *this; }
 
     auto CommandQueue::Signal(Fence const& fence, std::optional<uint64_t> value) const -> void {
         m_pInternal->Signal(fence, value);
@@ -165,8 +151,15 @@ namespace HAL {
         return m_pInternal->GetVkQueue();
     }
 
-    auto GraphicsCommandQueue::ExecuteCommandLists(GraphicsCommandList* pCmdLists, uint32_t count) const -> void {
-
+    auto TransferCommandQueue::ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void {   
+         m_pInternal->ExecuteCommandList(cmdLists);
     }
 
+    auto ComputeCommandQueue::ExecuteCommandList(ArrayProxy<ComputeCommandList> const & cmdLists) const -> void {
+         m_pInternal->ExecuteCommandList(cmdLists);
+    }
+    
+    auto GraphicsCommandQueue::ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const & cmdLists) const -> void {  
+        m_pInternal->ExecuteCommandList(cmdLists);
+    }
 }

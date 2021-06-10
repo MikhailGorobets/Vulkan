@@ -3,7 +3,6 @@
 #include "../include/DeviceImpl.hpp"
 
 namespace HAL {
-
     Fence::Internal::Internal(Device const& device, uint64_t value) {
         vk::SemaphoreTypeCreateInfo semaphoreTypeCI = {
             .semaphoreType = vk::SemaphoreType::eTimeline,
@@ -56,8 +55,11 @@ namespace HAL {
 }
 
 namespace HAL {
-
     Fence::Fence(Device const& device, uint64_t value) : m_pInternal(device, value) {}
+
+    Fence::Fence(Fence&& rhs) : m_pInternal(std::move(rhs.m_pInternal)) {}
+
+    Fence& Fence::operator=(Fence&& rhs) { m_pInternal = std::move(rhs.m_pInternal); return *this; }
 
     Fence::~Fence() = default;
 
@@ -82,5 +84,4 @@ namespace HAL {
     auto Fence::GetVkSemaphore() const -> vk::Semaphore {
         return m_pInternal->GetVkSemaphore();
     }
-
 }

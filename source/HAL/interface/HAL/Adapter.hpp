@@ -9,6 +9,6 @@ namespace HAL {
     public:
          auto GetVkPhysicalDevice() const -> vk::PhysicalDevice; 
     private:     
-        Internal_Ptr<Internal, InternalSize_Adapter> m_pInternal;
+        InternalPtr<Internal, InternalSize_Adapter> m_pInternal;
     };
 }

@@ -24,7 +24,7 @@ namespace HAL {
     public:
         Internal() = default;
         
-        Internal(vk::PhysicalDevice const& physicalDevice); 
+        Internal(vk::PhysicalDevice physicalDevice); 
         
         auto GetProperties() const -> DeviceProperties const& { return m_Properties; }
 

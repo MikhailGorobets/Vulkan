@@ -2,7 +2,7 @@
 #include "../include/InstanceImpl.hpp"
 
 namespace HAL {
-    Adapter::Internal::Internal(vk::PhysicalDevice const& physicalDevice) {
+    Adapter::Internal::Internal(vk::PhysicalDevice physicalDevice) {
         m_Device = physicalDevice;
         
         auto deviceFeatures = m_Device.getFeatures2<

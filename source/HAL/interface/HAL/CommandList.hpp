@@ -3,21 +3,25 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-    class CommandList {
+    class CommandList: NonCopyable {
     public:
         class Internal;
     protected:
-         CommandList(CommandAllocator const& allocator);
+        CommandList(CommandAllocator const& allocator);
     public:       
+        CommandList(CommandList&&) noexcept;
+       
+        CommandList& operator=(CommandList&&) noexcept;        
+
         ~CommandList();  
     
-        auto Begin() const -> void;
+        auto Begin() -> void;
         
-        auto End() const -> void;    
+        auto End() -> void;    
 
         auto GetVkCommandBuffer() const -> vk::CommandBuffer;
-    private:     
-        Internal_Ptr<Internal, InternalSize_CommandList> m_pInternal;   
+    protected:     
+        InternalPtr<Internal, InternalSize_CommandList> m_pInternal;   
     };
 
     class TransferCommandList: public CommandList {

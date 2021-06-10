@@ -110,25 +110,25 @@ namespace HAL {
 
         if (m_QueueFamilyGraphics) {
             for (size_t index = 0; index < m_QueueFamilyGraphics.value().queueCount; index++) {
-                HAL::CommandQueue::Internal commandQueue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyGraphics.value().queueIndex, index));          
-                vkx::setDebugName(*m_pDevice, commandQueue.GetVkQueue(), fmt::format("Graphics: [{}]", index));
-                m_QueuesGraphics.push_back(std::move(*(reinterpret_cast<HAL::GraphicsCommandQueue*>(&commandQueue))));
+                auto queue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyGraphics.value().queueIndex, index));
+                m_QueuesGraphics.push_back(std::move(*reinterpret_cast<HAL::CommandQueue*>(&queue)));
+                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Graphics: [{}]", index));
             }
         }
 
         if (m_QueueFamilyCompute) {
-            for (size_t index = 0; index < m_QueueFamilyCompute.value().queueCount; index++) {
-                HAL::CommandQueue::Internal commandQueue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyCompute.value().queueIndex, index));
-                vkx::setDebugName(*m_pDevice, commandQueue.GetVkQueue(), fmt::format("Compute: [{}]", index));
-                m_QueuesCompute.push_back(std::move(*(reinterpret_cast<HAL::ComputeCommandQueue*>(&commandQueue))));
+            for (size_t index = 0; index < m_QueueFamilyCompute.value().queueCount; index++) {   
+                auto queue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyCompute.value().queueIndex, index));
+                m_QueuesCompute.push_back(std::move(*reinterpret_cast<HAL::CommandQueue*>(&queue)));
+                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Compute: [{}]", index));      
             }
         }
 
         if (m_QueueFamilyTransfer) {
             for (size_t index = 0; index < m_QueueFamilyTransfer.value().queueCount; index++) {
-                HAL::CommandQueue::Internal commandQueue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyTransfer.value().queueIndex, index));
-                vkx::setDebugName(*m_pDevice, commandQueue.GetVkQueue(), fmt::format("Transfer: [{}]", index));
-                m_QueuesTransfer.push_back(std::move(*(reinterpret_cast<HAL::TransferCommandQueue*>(&commandQueue))));
+                auto queue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyTransfer.value().queueIndex, index));
+                m_QueuesTransfer.push_back(std::move(*reinterpret_cast<HAL::CommandQueue*>(&queue)));
+                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Transfer: [{}]", index));      
             }
         }
 
@@ -160,15 +160,15 @@ namespace HAL {
 
     Device::~Device() = default;
 
-    auto Device::GetTransferCommandQueue() const -> const TransferCommandQueue* {
+    auto Device::GetTransferCommandQueue() -> TransferCommandQueue& {
         return m_pInternal->GetTransferCommandQueue();
     }
 
-    auto Device::GetComputeCommandQueue() const -> const ComputeCommandQueue* {
+    auto Device::GetComputeCommandQueue() -> ComputeCommandQueue& {
        return m_pInternal->GetComputeCommandQueue();
     }
 
-    auto Device::GetGraphicsCommandQueue() const -> const GraphicsCommandQueue* {
+    auto Device::GetGraphicsCommandQueue() -> GraphicsCommandQueue& {
        return m_pInternal->GetGraphicsCommandQueue();
     }
 

@@ -9,7 +9,7 @@ namespace HAL {
         bool IsEnableDebugUtils = {};
     };    
 
-    class Instance {
+    class Instance: NonCopyable {
     public:
         class Internal;
     public:     
@@ -22,7 +22,7 @@ namespace HAL {
         auto GetAdapters() const -> std::vector<HAL::Adapter> const&;
 
     private:    
-        Internal_Ptr<Internal, InternalSize_Instance> m_pInternal;   
+        InternalPtr<Internal, InternalSize_Instance> m_pInternal;   
     };
 }
    

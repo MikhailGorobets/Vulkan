@@ -12,8 +12,20 @@ namespace std {
 }
 
 namespace HAL {
+    struct NonCopyable { 
+        NonCopyable() = default;
+        NonCopyable(NonCopyable const&) = delete;
+        NonCopyable& operator=(NonCopyable const&) = delete;
+    };
+}
+
+namespace HAL {
+    template<typename T> using ArrayProxy = std::initializer_list<std::reference_wrapper<T>>; 
+}
+
+namespace HAL {
     template<typename T, size_t Size, size_t Alignment = 8>
-    class Internal_Ptr {
+    class InternalPtr {
     private:
         std::aligned_storage_t<Size, Alignment> m_Data;
     private:
@@ -28,23 +40,23 @@ namespace HAL {
        }
     public:
         template<typename... Args>
-        explicit Internal_Ptr(Args&&... args) noexcept { new (GetPtr()) T(std::forward<Args>(args)...);  }
+        explicit InternalPtr(Args&&... args) noexcept { new (GetPtr()) T(std::forward<Args>(args)...);  }
     
-        Internal_Ptr(Internal_Ptr const& rhs) noexcept { new (GetPtr()) T(*rhs); }
+        InternalPtr(InternalPtr const& rhs) noexcept { new (GetPtr()) T(*rhs); }
 
-        Internal_Ptr(Internal_Ptr&& rhs) noexcept { new (GetPtr()) T(std::move(*rhs)); }      
+        InternalPtr(InternalPtr&& rhs) noexcept { new (GetPtr()) T(std::move(*rhs)); }      
 
-        ~Internal_Ptr() noexcept {          
+        ~InternalPtr() noexcept {          
             Validate<sizeof(T), alignof(T)>();
             GetPtr()->~T();
         }
            
-        Internal_Ptr& operator=(Internal_Ptr const& rhs)  {
+        InternalPtr& operator=(InternalPtr const& rhs)  {
             *GetPtr() = *rhs;
             return *this;
         }
             
-        Internal_Ptr& operator=(Internal_Ptr&& rhs) noexcept { 
+        InternalPtr& operator=(InternalPtr&& rhs) noexcept { 
             *GetPtr() = std::move(*rhs);
             return *this;
         }
@@ -67,12 +79,12 @@ namespace HAL {
     constexpr size_t InternalSize_Adapter   = 2496;
     constexpr size_t InternalSize_Instance  = 128; 
     constexpr size_t InternalSize_Device    = 200;
-    constexpr size_t InternalSize_SwapChain = 376;
+    constexpr size_t InternalSize_SwapChain = 360;
     constexpr size_t InternalSize_Fence     = 40;
     constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 64;
+    constexpr size_t InternalSize_CommandList = 32;
 #else
     constexpr size_t InternalSize_Adapter   = 2480;
     constexpr size_t InternalSize_Instance  = 104; 
@@ -82,7 +94,7 @@ namespace HAL {
     constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 64;
+    constexpr size_t InternalSize_CommandList = 32;
 #endif
 
 }

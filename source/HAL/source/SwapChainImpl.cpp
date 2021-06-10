@@ -17,8 +17,6 @@ namespace HAL {
         this->CreateSyncPrimitives(device.GetVkDevice());
     }
 
-    SwapChain::Internal::~Internal() {}
-
     auto SwapChain::Internal::Acquire() -> void {
         m_BufferIndices.push(m_BufferIndex++ % m_BufferCount);
         assert(m_BufferIndices.size() <= m_BufferCount);

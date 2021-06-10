@@ -9,6 +9,10 @@ namespace HAL {
     auto CommandAllocator::Internal::GetCommandPool() const -> vk::CommandPool {
         return *m_pCommandPool;
     }
+    
+    auto CommandAllocator::Internal::GetDevice() const -> vk::Device {
+        return m_pCommandPool.getOwner();
+    }
 }
 
 namespace HAL {

@@ -3,10 +3,14 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
-    class CommandQueue {
+    class CommandQueue: NonCopyable {
     public:
         class Internal;
     public:     
+        CommandQueue(CommandQueue&&) noexcept;
+       
+        CommandQueue& operator=(CommandQueue&&) noexcept;        
+
         auto Signal(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
 
         auto Wait(Fence const& fence, std::optional<uint64_t> value = std::nullopt) const -> void;
@@ -19,22 +23,22 @@ namespace HAL {
   
         auto GetVkQueue() const -> vk::Queue;      
 
-    private:     
-        Internal_Ptr<Internal, InternalSize_CommandQueue> m_pInternal;   
+    protected:     
+        InternalPtr<Internal, InternalSize_CommandQueue> m_pInternal;   
     };
     
     class TransferCommandQueue: public CommandQueue {
     public:
-        auto ExecuteCommandList(TransferCommandList* pCmdLists, uint32_t count) const -> void;
+        auto ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void;
     };
     
     class ComputeCommandQueue: public TransferCommandQueue {
     public:
-        auto ExecuteCommandList(ComputeCommandList* pCmdLists, uint32_t count) const -> void;
+        auto ExecuteCommandList(ArrayProxy<ComputeCommandList> const& cmdLists) const -> void;
     };
 
     class GraphicsCommandQueue: public ComputeCommandQueue {
     public:
-        auto ExecuteCommandLists(GraphicsCommandList* pCmdLists, uint32_t count) const -> void;
+        auto ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const& cmdLists) const -> void;
     };
 }

@@ -2,7 +2,6 @@
 #include "../include/AdapterImpl.hpp"
 
 namespace HAL {
- 
     Instance::Internal::Internal(InstanceCreateInfo const& createInfo) {
 
         const char* INSTANCE_LAYERS[] = {
@@ -67,10 +66,9 @@ namespace HAL {
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_pInstance);
 
         for(auto const& physicalDevice: m_pInstance->enumeratePhysicalDevices()) {     
-            auto adapter = HAL::Adapter::Internal(physicalDevice);    
-            m_Adapters.push_back(*reinterpret_cast<HAL::Adapter*>(&adapter));
-        }
-          
+            auto adapter = HAL::Adapter::Internal(physicalDevice);
+            m_Adapters.push_back(std::move(*reinterpret_cast<HAL::Adapter*>(&adapter)));
+        }         
     }    
 }
 
