@@ -1,12 +1,12 @@
-#include "..\include\CommandAllocatorImpl.hpp"
-#include "..\include\DeviceImpl.hpp"
+#include "../include/CommandAllocatorImpl.hpp"
+#include "../include/DeviceImpl.hpp"
 
 namespace HAL {
     CommandAllocator::Internal::Internal(Device const& device, uint32_t queueFamilyIndex) {
        m_pCommandPool = device.GetVkDevice().createCommandPoolUnique(vk::CommandPoolCreateInfo{ .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer, .queueFamilyIndex = queueFamilyIndex });
     }
 
-    auto CommandAllocator::Internal::GetVkCommandPool() const -> vk::CommandPool {
+    auto CommandAllocator::Internal::GetCommandPool() const -> vk::CommandPool {
         return *m_pCommandPool;
     }
 }
@@ -17,7 +17,7 @@ namespace HAL {
     CommandAllocator::~CommandAllocator() = default;
 
     auto CommandAllocator::GetVkCommandPool() const -> vk::CommandPool {
-        return m_pInternal->GetVkCommandPool();
+        return m_pInternal->GetCommandPool();
     }
 
     TransferCommandAllocator::TransferCommandAllocator(Device const & device) : CommandAllocator(device, reinterpret_cast<const Device::Internal*>(&device)->GetTransferQueueFamilyIndex()) { }

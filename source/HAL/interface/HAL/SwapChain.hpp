@@ -19,6 +19,8 @@ namespace HAL {
         
         ~SwapChain();
 
+        auto Resize(uint32_t width, uint32_t height) -> void;
+
         auto GetFormat() const -> vk::Format;        
 
         auto GetImageView(uint32_t imageID) const -> vk::ImageView;         

@@ -14,7 +14,7 @@ namespace HAL {
         auto NextImage(SwapChain const& swapChain, Fence const& fence, std::optional<uint64_t> signalValue = std::nullopt) const -> uint32_t;
 
         auto Present(SwapChain const& swapChain, uint32_t frameID, Fence const& fence, std::optional<uint64_t> waitValue = std::nullopt) const -> void;
-        
+       
         auto WaitIdle() const -> void;
   
         auto GetVkQueue() const -> vk::Queue;      
@@ -35,6 +35,6 @@ namespace HAL {
 
     class GraphicsCommandQueue: public ComputeCommandQueue {
     public:
-        auto ExecuteCommandList(GraphicsCommandList* pCmdLists, uint32_t count) const -> void;
+        auto ExecuteCommandLists(GraphicsCommandList* pCmdLists, uint32_t count) const -> void;
     };
 }

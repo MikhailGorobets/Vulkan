@@ -1,8 +1,7 @@
-#include "..\interface\HAL\CommandQueue.hpp"
-#include "..\interface\HAL\CommandQueue.hpp"
 #include "..\include\CommandQueueImpl.hpp"
 #include "..\include\SwapChainImpl.hpp"
 #include "..\include\FenceImpl.hpp"
+#include "..\include\CommandListImpl.hpp"
 
 //TODO Lock
 
@@ -117,6 +116,18 @@ namespace HAL {
         pSwapChain->Release();
     }
 
+    auto CommandQueue::Internal::ExecuteCommandList(CommandList* pCmdLists, uint32_t count) const -> void {
+        std::vector<vk::CommandBuffer> commandBuffers(count);
+        for(size_t index = 0; index < count; index++)
+            commandBuffers.push_back(pCmdLists[index].GetVkCommandBuffer());
+      
+        vk::SubmitInfo submitInfo = {
+           .commandBufferCount = static_cast<uint32_t>(std::size(commandBuffers)),
+           .pCommandBuffers = std::data(commandBuffers),             
+        };            
+        m_Queue.submit(submitInfo, {});
+    }
+
 
     auto CommandQueue::Internal::WaitIdle() const -> void {
         m_Queue.waitIdle();        
@@ -154,7 +165,7 @@ namespace HAL {
         return m_pInternal->GetVkQueue();
     }
 
-    auto GraphicsCommandQueue::ExecuteCommandList(GraphicsCommandList* pCmdLists, uint32_t count) const -> void {
+    auto GraphicsCommandQueue::ExecuteCommandLists(GraphicsCommandList* pCmdLists, uint32_t count) const -> void {
 
     }
 

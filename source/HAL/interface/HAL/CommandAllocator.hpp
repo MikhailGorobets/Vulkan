@@ -7,7 +7,7 @@ namespace HAL {
     public:
         class Internal;
     protected:
-        CommandAllocator(Device const& device, uint32_t queueFamily);
+        CommandAllocator(Device const& device, uint32_t indexQueueFamily);
     public: 
         ~CommandAllocator();  
     

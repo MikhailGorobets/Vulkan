@@ -15,11 +15,11 @@ namespace HAL {
 
         ~Device();
         
-        auto GetTransferCommandQueue() const -> const TransferCommandQueue*;
+        auto GetTransferCommandQueue() const -> std::observer_ptr<TransferCommandQueue>;
         
-        auto GetComputeCommandQueue()  const -> const ComputeCommandQueue*;  
+        auto GetComputeCommandQueue()  const -> std::observer_ptr<ComputeCommandQueue>;  
 
-        auto GetGraphicsCommandQueue() const -> const GraphicsCommandQueue*;
+        auto GetGraphicsCommandQueue() const -> std::observer_ptr<GraphicsCommandQueue>;
       
         auto WaitIdle() -> void;
          

@@ -1,5 +1,5 @@
-#include "..\include\InstanceImpl.hpp"
-#include "..\include\AdapterImpl.hpp"
+#include "../include/InstanceImpl.hpp"
+#include "../include/AdapterImpl.hpp"
 
 namespace HAL {
  

@@ -7,11 +7,13 @@ namespace HAL {
     public:
         class Internal;
     protected:
-        CommandList(CommandAllocator& allocator);
-
-        auto Begin() -> void;
+         CommandList(CommandAllocator const& allocator);
+    public:       
+        ~CommandList();  
+    
+        auto Begin() const -> void;
         
-        auto End() -> void;    
+        auto End() const -> void;    
 
         auto GetVkCommandBuffer() const -> vk::CommandBuffer;
     private:     
@@ -20,16 +22,16 @@ namespace HAL {
 
     class TransferCommandList: public CommandList {
     public:
-        TransferCommandList(CommandAllocator& allocator);
+        TransferCommandList(TransferCommandAllocator const& allocator);
     };
 
     class ComputeCommandList: public TransferCommandList {
     public:
-        ComputeCommandList(CommandAllocator& allocator);
+        ComputeCommandList(ComputeCommandAllocator const& allocator);
     };
 
     class GraphicsCommandList: public ComputeCommandList {
     public:
-        GraphicsCommandList(CommandAllocator& allocator);
+        GraphicsCommandList(GraphicsCommandAllocator const& allocator);
     };
 }

@@ -21,10 +21,12 @@ namespace HAL {
 
         auto Present(SwapChain const& swapChain, uint32_t frameID, Fence const& fence, std::optional<uint64_t> waitValue = std::nullopt) const -> void;
 
+        auto ExecuteCommandList(CommandList* pCmdLists, uint32_t count) const -> void;
+
         auto WaitIdle() const -> void;
 
         auto GetVkQueue() const -> vk::Queue;       
     private:
-        vk::Queue  m_Queue = {};          
+        vk::Queue m_Queue = {};          
     };
 }

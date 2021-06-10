@@ -18,6 +18,8 @@ namespace HAL {
         auto Acquire() -> void;
 
         auto Release() -> void;
+        
+        auto Resize(uint32_t width, uint32_t height) -> void;
 
         auto GetFormat() const -> vk::Format { return m_SurfaceFormat.format; }
 
@@ -27,22 +29,20 @@ namespace HAL {
         
         auto GetSwapChain() const -> vk::SwapchainKHR { return *m_pSwapChain; }
         
-        auto GetDevice() const -> vk::Device { return m_Device; }
+        auto GetDevice() const -> vk::Device { return m_pSwapChain.getOwner(); }
 
         auto GetSemaphoreAvailable() const -> vk::Semaphore { return *m_SemaphoresAvailable[m_BufferIndices.front()]; }
 
         auto GetSemaphoreFinished() const -> vk::Semaphore { return *m_SemaphoresFinished[m_BufferIndices.front()]; }
 
     private:
-        auto CreateSurface(Device const& device) -> void;
+        auto CreateSurface(Instance const& instance, Device const& device) -> void;
 
-        auto CreateSwapChain(uint32_t width, uint32_t height) -> void;
+        auto CreateSwapChain(vk::Device device, uint32_t width, uint32_t height) -> void;
         
-        auto CreateSyncPrimitives() -> void;      
+        auto CreateSyncPrimitives(vk::Device device) -> void;      
 
     private:
-        vk::Instance          m_Instance = {};
-        vk::Device            m_Device   = {};
         vk::PhysicalDevice    m_PhysicalDevice = {};
         std::vector<uint32_t> m_QueueFamilyIndices = {};
       

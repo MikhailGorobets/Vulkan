@@ -19,7 +19,7 @@ namespace HAL {
 
         auto GetTransferQueueFamilyIndex() const -> uint32_t { return m_QueueFamilyTransfer->queueIndex; }
 
-        auto GetGraphicsCommandQueue() const -> const HAL::GraphicsCommandQueue* { return &m_QueuesGraphics[0]; }
+        auto GetGraphicsCommandQueue() const -> const std::observer_ptr<HAL::GraphicsCommandQueue> { return &m_QueuesGraphics[0]; }
 
         auto GetComputeCommandQueue()  const -> const HAL::ComputeCommandQueue* { return &m_QueuesCompute[0]; }
         

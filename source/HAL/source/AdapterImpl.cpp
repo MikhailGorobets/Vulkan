@@ -1,5 +1,5 @@
-#include "..\include\AdapterImpl.hpp"
-#include "..\include\InstanceImpl.hpp"
+#include "../include/AdapterImpl.hpp"
+#include "../include/InstanceImpl.hpp"
 
 namespace HAL {
     Adapter::Internal::Internal(vk::PhysicalDevice const& physicalDevice) {

@@ -7,6 +7,9 @@
 #include <vector>
 #include <string>
 
+namespace std {
+    template<typename T> using observer_ptr = T*; 
+}
 
 namespace HAL {
     template<typename T, size_t Size, size_t Alignment = 8>
@@ -31,7 +34,7 @@ namespace HAL {
 
         Internal_Ptr(Internal_Ptr&& rhs) noexcept { new (GetPtr()) T(std::move(*rhs)); }      
 
-        ~Internal_Ptr() noexcept {
+        ~Internal_Ptr() noexcept {          
             Validate<sizeof(T), alignof(T)>();
             GetPtr()->~T();
         }
@@ -74,7 +77,7 @@ namespace HAL {
     constexpr size_t InternalSize_Adapter   = 2480;
     constexpr size_t InternalSize_Instance  = 104; 
     constexpr size_t InternalSize_Device    = 176;
-    constexpr size_t InternalSize_SwapChain = 336;
+    constexpr size_t InternalSize_SwapChain = 320;
     constexpr size_t InternalSize_Fence     = 40;
     constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;

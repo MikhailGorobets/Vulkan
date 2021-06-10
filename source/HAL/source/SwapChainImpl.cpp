@@ -7,20 +7,14 @@
 
 namespace HAL {
     SwapChain::Internal::Internal(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo) {      
-        auto pDeviceImpl = (Device::Internal*)(&device);
-        auto pInstanceImpl = (Instance::Internal*)(&instance);
-
-        m_Device = pDeviceImpl->GetDevice();
-        m_Instance = pInstanceImpl->GetInstance();
-        m_PhysicalDevice = pDeviceImpl->GetPhysicalDevice();
-
+        m_PhysicalDevice = device.GetVkPhysicalDevice();
         m_IsSRGBEnabled = createInfo.IsSRGB;
         m_IsVSyncEnabled = createInfo.IsVSync;
         m_WindowHandle = reinterpret_cast<HWND>(createInfo.WindowHandle);
 
-        this->CreateSurface(device);
-        this->CreateSwapChain(createInfo.Width, createInfo.Height);
-        this->CreateSyncPrimitives();
+        this->CreateSurface(instance, device);
+        this->CreateSwapChain(device.GetVkDevice(), createInfo.Width, createInfo.Height);
+        this->CreateSyncPrimitives(device.GetVkDevice());
     }
 
     SwapChain::Internal::~Internal() {}
@@ -34,18 +28,17 @@ namespace HAL {
         m_BufferIndices.pop();
     }
 
-
-    auto SwapChain::Internal::CreateSurface(Device const& device) -> void {
+    auto SwapChain::Internal::CreateSurface(Instance const& instance, Device const& device) -> void {
         vk::Win32SurfaceCreateInfoKHR surfaceCI = {
             .hinstance = GetModuleHandle(nullptr),
             .hwnd = m_WindowHandle
         };
+        
+        auto pDeviceImpl = reinterpret_cast<const Device::Internal*>(&device);
 
-        m_pSurface = m_Instance.createWin32SurfaceKHRUnique(surfaceCI);
-        vkx::setDebugName(m_Device, *m_pSurface, "Win32SurfaceKHR");  
-    
-        auto pDeviceImpl = (Device::Internal*)(&device);
-    
+        m_pSurface = reinterpret_cast<const Instance::Internal*>(&instance)->GetInstance().createWin32SurfaceKHRUnique(surfaceCI);
+        vkx::setDebugName(pDeviceImpl->GetDevice(), *m_pSurface, "Win32SurfaceKHR");  
+        
         if (m_PhysicalDevice.getSurfaceSupportKHR(pDeviceImpl->GetGraphicsQueueFamilyIndex(), *m_pSurface)) 
             m_QueueFamilyIndices.push_back(pDeviceImpl->GetGraphicsQueueFamilyIndex());
          
@@ -60,10 +53,10 @@ namespace HAL {
         
         if(m_QueueFamilyIndices.empty())
             fmt::print("Error: Select surface isn't supported by physical device");     
-
     }
 
-    auto SwapChain::Internal::CreateSwapChain(uint32_t width, uint32_t height) -> void {
+    auto SwapChain::Internal::CreateSwapChain(vk::Device device, uint32_t width, uint32_t height) -> void {
+
         auto SelectSurfaceFormat = [](vk::PhysicalDevice adapter, vk::SurfaceKHR surface, bool isSRGB) -> std::optional<vk::SurfaceFormatKHR> {
             std::vector<vk::SurfaceFormatKHR> supportedFormats = adapter.getSurfaceFormatsKHR(surface);
 
@@ -129,11 +122,11 @@ namespace HAL {
             .clipped = true
         };
 
-        m_pSwapChain = m_Device.createSwapchainKHRUnique(swapchainCI);
-        vkx::setDebugName(m_Device, *m_pSwapChain, fmt::format("Format: {} PresentMode: {} Width: {} Height: {}", vk::to_string(swapchainCI.imageFormat), vk::to_string(swapchainCI.presentMode), width, height));
+        m_pSwapChain = device.createSwapchainKHRUnique(swapchainCI);
+        vkx::setDebugName(device, *m_pSwapChain, fmt::format("Format: {} PresentMode: {} Width: {} Height: {}", vk::to_string(swapchainCI.imageFormat), vk::to_string(swapchainCI.presentMode), width, height));
 
 
-        m_SwapChainImages = m_Device.getSwapchainImagesKHR(*m_pSwapChain);
+        m_SwapChainImages = device.getSwapchainImagesKHR(*m_pSwapChain);
         for (size_t index = 0; index < std::size(m_SwapChainImages); index++) {
             vk::ImageViewCreateInfo imageViewCI = {
                 .image = m_SwapChainImages[index],
@@ -147,24 +140,33 @@ namespace HAL {
                     .layerCount = VK_REMAINING_ARRAY_LAYERS
             }
             };
-            auto pImageView = m_Device.createImageViewUnique(imageViewCI);
-            vkx::setDebugName(m_Device, m_SwapChainImages[index], fmt::format("SwapChain[{0}]", index));
-            vkx::setDebugName(m_Device, *pImageView, fmt::format("SwapChain[{0}]", index));
+            auto pImageView = device.createImageViewUnique(imageViewCI);
+            vkx::setDebugName(device, m_SwapChainImages[index], fmt::format("SwapChain[{0}]", index));
+            vkx::setDebugName(device, *pImageView, fmt::format("SwapChain[{0}]", index));
             m_SwapChainImageViews.push_back(std::move(pImageView));
         }        
     }
 
-    auto SwapChain::Internal::CreateSyncPrimitives() -> void {
+    auto SwapChain::Internal::CreateSyncPrimitives(vk::Device device) -> void {
         for (uint32_t index = 0; index < m_BufferCount; index++) {
-            auto pSemaphoresAvailable = m_Device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});
-            auto pSemaphoresFinished = m_Device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});         
+            auto pSemaphoresAvailable = device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});
+            auto pSemaphoresFinished = device.createSemaphoreUnique(vk::SemaphoreCreateInfo{});         
 
-            vkx::setDebugName(m_Device, *pSemaphoresAvailable, fmt::format("SwapChain Available[{}]", index));
-            vkx::setDebugName(m_Device, *pSemaphoresFinished, fmt::format("SwapChain Finished[{}]", index));        
+            vkx::setDebugName(device, *pSemaphoresAvailable, fmt::format("SwapChain Available[{}]", index));
+            vkx::setDebugName(device, *pSemaphoresFinished, fmt::format("SwapChain Finished[{}]", index));        
 
             m_SemaphoresAvailable.push_back(std::move(pSemaphoresAvailable));
             m_SemaphoresFinished.push_back((std::move(pSemaphoresFinished)));
         }
+    }
+
+    auto SwapChain::Internal::Resize(uint32_t width, uint32_t height) -> void {
+        auto device = m_pSwapChain.getOwner();
+
+        std::queue<uint32_t>().swap(m_BufferIndices);
+        m_SwapChainImageViews.clear();
+        m_pSwapChain.reset();
+        this->CreateSwapChain(device, width, height);       
     }
 }
 
@@ -174,15 +176,17 @@ namespace HAL {
 
     SwapChain::~SwapChain() = default;
 
-    auto SwapChain::GetFormat() const -> vk::Format
-    {
+    auto SwapChain::Resize(uint32_t width, uint32_t height) -> void  {
+        m_pInternal->Resize(width, height);
+    }
+
+    auto SwapChain::GetFormat() const -> vk::Format  {
         return m_pInternal->GetFormat();
     }
 
     auto SwapChain::GetImageView(uint32_t imageID) const -> vk::ImageView {
         return m_pInternal->GetImageView(imageID);
     }
-
 
     auto SwapChain::GetVkSwapChain() const -> vk::SwapchainKHR {
         return m_pInternal->GetSwapChain();

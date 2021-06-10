@@ -1,5 +1,5 @@
 #include <Windows.h>
-#include "..\include\ShaderCompilerImpl.hpp"
+#include "../include/ShaderCompilerImpl.hpp"
 #include <fmt/format.h>
 
 
@@ -50,7 +50,7 @@ auto HAL::ShaderCompiler::Internal::CompileShaderBlob(ComPtr<IDxcBlobEncoding> p
     dxcArguments.insert(std::end(dxcArguments), { L"-T",  shaderProfile.c_str() });
     dxcArguments.insert(std::end(dxcArguments), { L"-HV", shaderVersion.c_str() });
     
-    dxcArguments.insert(std::end(dxcArguments), { L"-spirv", L"-fspv-reflect", L"-fspv-target-env=vulkan1.1", L"-enable-16bit-types" });
+    dxcArguments.insert(std::end(dxcArguments), { L"-spirv", L"-fspv-reflect", L"-fspv-target-env=vulkan1.2", L"-enable-16bit-types" });
     if (m_IsDebug) {
         dxcArguments.insert(std::end(dxcArguments), { L"-fspv-debug=file", L"-fspv-debug=source",  L"-fspv-debug=line",  L"-fspv-debug=tool" });
     }
