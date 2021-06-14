@@ -38,7 +38,7 @@ cmake -S . -B ./build/Win64 -G "Visual Studio 16 2019" -A x64
 
 |  Platform                                                                                                                                         | Build status                                                                                       |
 |---------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| <img src="https://user-images.githubusercontent.com/25492259/121948839-32127100-cd71-11eb-84cd-40277948cad2.png" width=24 valign="middle"> Windows | ![Build Status](https://github.com/MikhailGorobets/Vulkan/actions/workflows/windows.yml/badge.svg) |
+| <img src="https://user-images.githubusercontent.com/25492259/121948839-32127100-cd71-11eb-84cd-40277948cad2.png" width=22 valign="middle"> Windows | ![Build Status](https://github.com/MikhailGorobets/Vulkan/actions/workflows/windows.yml/badge.svg) |
 
 
 
