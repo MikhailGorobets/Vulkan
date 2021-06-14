@@ -7,7 +7,7 @@ namespace HAL {
     public:
         class Internal;
     public:
-        Fence(Device const& device, uint64_t value);
+        Fence(Device const& device, std::optional<uint64_t> value = std::nullopt);
         
         Fence(Fence&&);
         

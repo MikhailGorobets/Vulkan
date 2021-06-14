@@ -46,7 +46,8 @@ namespace HAL {
         auto pSwapChain = (SwapChain::Internal*)(&swapChain);           
         pSwapChain->Acquire();
 
-        uint32_t frameID = pSwapChain->GetDevice().acquireNextImageKHR(pSwapChain->GetSwapChain(), std::numeric_limits<uint64_t>::max(), pSwapChain->GetSemaphoreAvailable(), nullptr);
+        auto [result, frameID] = pSwapChain->GetDevice().acquireNextImageKHR(pSwapChain->GetSwapChain(), std::numeric_limits<uint64_t>::max(), pSwapChain->GetSemaphoreAvailable(), nullptr);
+        assert(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR);
            
         vk::Semaphore pWaitSemaphores[] = { pSwapChain->GetSemaphoreAvailable() };       
         vk::Semaphore pSignalSemaphores[] = { fence.GetVkSemaphore() };
@@ -109,7 +110,7 @@ namespace HAL {
         };
 
         vk::Result result = m_Queue.presentKHR(presentInfo);
-        assert(result == vk::Result::eSuccess);
+        assert(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR);
         pSwapChain->Release();
     }
 

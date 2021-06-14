@@ -97,12 +97,30 @@ namespace HAL {
         } else {
             fmt::print("Error: ....TODO");
         }
+               
+        vk::StructureChain<vk::PhysicalDeviceSurfaceInfo2KHR, vk::SurfaceFullScreenExclusiveInfoEXT /*, vk::SurfaceFullScreenExclusiveWin32InfoEXT */> freeSync2Structures = {
+            vk::PhysicalDeviceSurfaceInfo2KHR{ .surface = *m_pSurface },
+            vk::SurfaceFullScreenExclusiveInfoEXT{ .fullScreenExclusive = vk::FullScreenExclusiveEXT::eAllowed }
+        //    vk::SurfaceFullScreenExclusiveWin32InfoEXT{ .hmonitor = MonitorFromWindow(m_WindowHandle, MONITOR_DEFAULTTONEAREST) }
+        };
           
-        m_SurfaceCapabilities = m_PhysicalDevice.getSurfaceCapabilitiesKHR(*m_pSurface);
+        auto surfaceCapabilities = m_PhysicalDevice.getSurfaceCapabilities2KHR<
+            vk::SurfaceCapabilities2KHR,
+            vk::DisplayNativeHdrSurfaceCapabilitiesAMD
+       //     vk::HdrMetadataEXT
+        >(freeSync2Structures.get<vk::PhysicalDeviceSurfaceInfo2KHR>()); 
+
+        m_SurfaceCapabilities = surfaceCapabilities.get<vk::SurfaceCapabilities2KHR>().surfaceCapabilities;
         m_BufferCount = std::min(m_SurfaceCapabilities.minImageCount + 1, m_SurfaceCapabilities.maxImageCount);
 
 
+        vk::SwapchainDisplayNativeHdrCreateInfoAMD swapchainDisplayNativeHdrCreateInfoAMD = {
+            .pNext = &freeSync2Structures.get<vk::SurfaceFullScreenExclusiveInfoEXT>(),
+            .localDimmingEnable = surfaceCapabilities.get<vk::DisplayNativeHdrSurfaceCapabilitiesAMD>().localDimmingSupport
+        };  
+
         vk::SwapchainCreateInfoKHR swapchainCI = {
+          //  .pNext = &swapchainDisplayNativeHdrCreateInfoAMD,
             .surface = *m_pSurface,
             .minImageCount = m_BufferCount,
             .imageFormat = m_SurfaceFormat.format,
@@ -122,8 +140,7 @@ namespace HAL {
 
         m_pSwapChain = device.createSwapchainKHRUnique(swapchainCI);
         vkx::setDebugName(device, *m_pSwapChain, fmt::format("Format: {} PresentMode: {} Width: {} Height: {}", vk::to_string(swapchainCI.imageFormat), vk::to_string(swapchainCI.presentMode), width, height));
-
-
+        
         m_SwapChainImages = device.getSwapchainImagesKHR(*m_pSwapChain);
         for (size_t index = 0; index < std::size(m_SwapChainImages); index++) {
             vk::ImageViewCreateInfo imageViewCI = {
@@ -168,7 +185,6 @@ namespace HAL {
     }
 }
 
- 
 namespace HAL {
     SwapChain::SwapChain(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo) : m_pInternal(instance, device, createInfo) { }
 

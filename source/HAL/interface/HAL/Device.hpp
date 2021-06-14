@@ -13,9 +13,9 @@ namespace HAL {
     public:       
         Device(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo);
     
-        Device(Device&&);
+        Device(Device&&) noexcept;
 
-        Device& operator=(Device&&);        
+        Device& operator=(Device&&) noexcept;        
 
         ~Device();
         

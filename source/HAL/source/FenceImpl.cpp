@@ -24,9 +24,10 @@ namespace HAL {
     }
 
     auto Fence::Internal::Wait(uint64_t value) const -> void {
+        vk::Semaphore pSemaphores[] = { m_pSemaphore.get() };
         vk::SemaphoreWaitInfo waitInfo = {
-             .semaphoreCount = 1,
-             .pSemaphores = m_pSemaphore.getAddressOf(),
+             .semaphoreCount = _countof(pSemaphores),
+             .pSemaphores = pSemaphores,
              .pValues = &value,            
         };
         auto result = m_pSemaphore.getOwner().waitSemaphores(waitInfo,  std::numeric_limits<uint64_t>::max());
@@ -55,7 +56,7 @@ namespace HAL {
 }
 
 namespace HAL {
-    Fence::Fence(Device const& device, uint64_t value) : m_pInternal(device, value) {}
+    Fence::Fence(Device const& device, std::optional<uint64_t> value) : m_pInternal(device, value.value_or(0)) {}
 
     Fence::Fence(Fence&& rhs) : m_pInternal(std::move(rhs.m_pInternal)) {}
 

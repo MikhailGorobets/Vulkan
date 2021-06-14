@@ -1,71 +1,33 @@
 cmake_minimum_required (VERSION 3.19)
 
 project(Vulkan CXX)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(WIN32)
-   set(PLATFORM_WIN32 TRUE CACHE INTERNAL "Target platform: Win32")
-   set(DXC_SPIRV_PATH "content/dxcompiler.dll")
-   message("Target platform: Win32. SDK Version: " ${CMAKE_SYSTEM_VERSION})
-endif()
+set(PROJECT_CONTENT            "${CMAKE_CURRENT_SOURCE_DIR}/content")
+set(PROJECT_DIRECTORY          "${CMAKE_CURRENT_SOURCE_DIR}")
+list(PREPEND CMAKE_MODULE_PATH "${PROJECT_DIRECTORY}/cmake")
 
-if(PLATFORM_WIN32)
-    set(GLOBAL_COMPILE_DEFINITIONS VK_USE_PLATFORM_WIN32_KHR=1 GLFW_EXPOSE_NATIVE_WIN32=1 NOMINMAX)
-elseif(PLATFORM_LINUX)
-    set(GLOBAL_COMPILE_DEFINITIONS VK_USE_PLATFORM_XCB_KHR=1 VK_USE_PLATFORM_XLIB_KHR=1)
-elseif(PLATFORM_MACOS)
-    set(GLOBAL_COMPILE_DEFINITIONS VK_USE_PLATFORM_MACOS_MVK=1)
-elseif(PLATFORM_IOS)
-    set(GLOBAL_COMPILE_DEFINITIONS VK_USE_PLATFORM_IOS_MVK=1)
-elseif(PLATFORM_ANDROID)
-    set(GLOBAL_COMPILE_DEFINITIONS VK_USE_PLATFORM_ANDROID_KHR=1)
-else()
-    message(FATAL_ERROR "Unknown platform")
-endif()
+include(cmake_settings)
+include(compiler_settings)
 
-set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+include(3rd-party/dxc)
+include(3rd-party/fmt)
+include(3rd-party/glfw)
+include(3rd-party/vulkan)
+include(3rd-party/imgui)
+include(3rd-party/implot)
+include(3rd-party/spirv-cross)
 
-include_directories(PUBLIC "3rd-party/dxc/include")
-include_directories(PUBLIC "3rd-party/fmt/include")
-include_directories(PUBLIC "3rd-party/glfw/include")
-include_directories(PUBLIC "3rd-party/hlslpp/include")
-include_directories(PUBLIC "3rd-party/imgui/include")
-include_directories(PUBLIC "3rd-party/implot/include")
-include_directories(PUBLIC "3rd-party/smolv/include")
-include_directories(PUBLIC "3rd-party/spirv/include")
-include_directories(PUBLIC "3rd-party/vulkan/include")
+
+
 include_directories(PUBLIC "source/HAL/interface")
 
-
-add_compile_definitions(${GLOBAL_COMPILE_DEFINITIONS})
-add_subdirectory(3rd-party)
 add_subdirectory(source/HAL)
 
-set_property(TARGET dxc    PROPERTY FOLDER 3rd-party)
-set_property(TARGET fmt    PROPERTY FOLDER 3rd-party)
-set_property(TARGET glfw   PROPERTY FOLDER 3rd-party)
-set_property(TARGET hlslpp PROPERTY FOLDER 3rd-party)
-set_property(TARGET imgui  PROPERTY FOLDER 3rd-party)
-set_property(TARGET implot PROPERTY FOLDER 3rd-party)
-set_property(TARGET smolv  PROPERTY FOLDER 3rd-party)
-set_property(TARGET spirv  PROPERTY FOLDER 3rd-party)
-set_property(TARGET vulkan PROPERTY FOLDER 3rd-party)
-##set_property(TARGET HAL    PROPERTY FOLDER HAL)
-
-
-
-set(SOURCE
-    source/Main.cpp
-)
+set(SOURCE "source/Main.cpp")
 
 source_group("include" FILES ${INCLUDE})
 source_group("source" FILES  ${SOURCE})
 
 add_executable(Vulkan ${INCLUDE} ${SOURCE})
-target_link_libraries(Vulkan PRIVATE fmt glfw smolv vulkan imgui implot HAL)
-##add_custom_command(TARGET Vulkan POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:DXC_SPIRV_PATH"${CMAKE_CURRENT_BINARY_DIR}" COMMENT "Copy dll file to ${CMAKE_CURRENT_BINARY_DIR} directory" VERBATIM)
+set_target_properties(Vulkan PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_DIRECTORY}")
+target_link_libraries(Vulkan PRIVATE fmt glfw spirv-cross-core spirv-cross-hlsl vulkan imgui implot HAL)

@@ -27,13 +27,15 @@ namespace HAL {
         class Internal;
     public:
         ShaderCompiler(ShaderCompilerCreateInfo const& createInfo);
+        
+        ~ShaderCompiler();
 
-        auto CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
+        auto CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>>;
          
-        auto CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
+        auto CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>>;
              
     private:    
-        InternalPtr<Internal, InternalSize_Compiler> m_pInternal;   
+        InternalPtr<Internal, InternalSize_ShaderCompiler> m_pInternal;   
     };
 
 }

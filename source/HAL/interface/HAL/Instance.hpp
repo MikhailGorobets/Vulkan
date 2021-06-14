@@ -15,6 +15,10 @@ namespace HAL {
     public:     
         Instance(InstanceCreateInfo const& createInfo);
 
+        Instance(Instance&&) noexcept;
+
+        Instance& operator=(Instance&&) noexcept;   
+
         ~Instance();
 
         auto GetVkInstance() const -> vk::Instance;

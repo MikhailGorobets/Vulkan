@@ -3,6 +3,17 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
+    enum class PresentationMode {
+        Windowed,
+        BoaredlessFullScreen,
+        ExclusiveFullScreen
+    };
+
+    enum class ColorSpace {
+        Rec709,
+        Rec2020
+    };
+
     struct SwapChainCreateInfo {  
         uint32_t Width = {};
         uint32_t Height = {};  
@@ -17,9 +28,9 @@ namespace HAL {
     public:      
         SwapChain(Instance const& instance, Device const& device, SwapChainCreateInfo const& createInfo);
         
-        SwapChain(SwapChain&&);
+        SwapChain(SwapChain&&) noexcept;
 
-        SwapChain& operator=(SwapChain&&);
+        SwapChain& operator=(SwapChain&&) noexcept;
 
         ~SwapChain();
 

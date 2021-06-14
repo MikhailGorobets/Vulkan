@@ -1,5 +1,6 @@
 #include "../include/CommandListImpl.hpp"
 #include "../include/CommandAllocatorImpl.hpp"
+#include "../include/RenderPassImpl.hpp"
 
 namespace HAL {
     CommandList::Internal::Internal(CommandAllocator const& allocator) {
@@ -14,6 +15,14 @@ namespace HAL {
 
     auto CommandList::Internal::End() -> void {
         m_pCommandBuffer->end();
+    }
+
+    auto CommandList::Internal::BeginRenderPass(RenderPassBeginInfo const& beginInfo) -> void {
+       ((RenderPass::Internal*)(beginInfo.pRenderPass))->GenerateFrameBufferAndCommit(*m_pCommandBuffer, beginInfo);
+    }
+
+    auto CommandList::Internal::EndRenderPass() -> void {
+        m_pCommandBuffer->endRenderPass();
     }
 
     auto CommandList::Internal::Begin() -> void {
@@ -47,4 +56,12 @@ namespace HAL {
     ComputeCommandList::ComputeCommandList(ComputeCommandAllocator const & allocator) : TransferCommandList(*reinterpret_cast<TransferCommandAllocator const*>(&allocator)) {}
 
     GraphicsCommandList::GraphicsCommandList(GraphicsCommandAllocator const& allocator) : ComputeCommandList(*reinterpret_cast<ComputeCommandAllocator const*>(&allocator)) {}
+
+    auto GraphicsCommandList::BeginRenderPass(RenderPassBeginInfo const& beginInfo) -> void {
+        m_pInternal->BeginRenderPass(beginInfo);
+    }
+
+    auto GraphicsCommandList::EndRenderPass() -> void { 
+        m_pInternal->EndRenderPass();
+    }
 }

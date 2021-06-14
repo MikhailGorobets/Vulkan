@@ -11,6 +11,7 @@ set(INCLUDE
     include/DeviceImpl.hpp
     include/FenceImpl.hpp
     include/InstanceImpl.hpp
+    include/RenderPassImpl.hpp
     include/ShaderCompilerImpl.hpp
     include/SwapChainImpl.hpp
   
@@ -27,6 +28,7 @@ set(INTERFACE
     interface/HAL/CommandQueue.hpp
     interface/HAL/CommandList.hpp
     interface/HAL/CommandAllocator.hpp
+    interface/HAL/RenderPass.hpp
 )
 
 
@@ -38,6 +40,7 @@ set(SOURCE
     source/DeviceImpl.cpp   
     source/FenceImpl.cpp    
     source/InstanceImpl.cpp
+    source/RenderPassImpl.cpp
     source/ShaderCompilerImpl.cpp
     source/SwapChainImpl.cpp
 )

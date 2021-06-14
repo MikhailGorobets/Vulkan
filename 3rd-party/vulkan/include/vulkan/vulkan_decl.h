@@ -71,7 +71,7 @@ namespace vkx {
         if ((ID < std::size(physicalDevices)) && isGraphicsAndComputeQueueSupported(physicalDevices[ID])) 
             selectedPhysicalDevice = physicalDevices[ID];     
          
-        if (selectedPhysicalDevice == VK_NULL_HANDLE) {
+        if (selectedPhysicalDevice == vk::PhysicalDevice{}) {
             for(auto const& adapter : physicalDevices) {
                 if (isGraphicsAndComputeQueueSupported(adapter)) {
                     selectedPhysicalDevice = adapter;
@@ -81,7 +81,7 @@ namespace vkx {
             }
         }  
          
-        return (selectedPhysicalDevice != VK_NULL_HANDLE) ? std::make_optional<vk::PhysicalDevice>(selectedPhysicalDevice) : std::nullopt;
+        return (selectedPhysicalDevice != vk::PhysicalDevice{}) ? std::make_optional<vk::PhysicalDevice>(selectedPhysicalDevice) : std::nullopt;
     } 
 
     inline [[nodiscard]] auto selectPresentFormat(std::vector<vk::Format> const& preferedFormats, std::vector<vk::SurfaceFormatKHR> const& supportedFormats) -> std::optional<vk::SurfaceFormatKHR> {
@@ -202,17 +202,3 @@ namespace vkx {
     void bufferTransition(vk::CommandBuffer cmdBuffer, BufferTransition const& translation);
 }
 
-
-namespace vkx {
-    class [[nodiscard]] DebugUtilsLabelScoped {
-    public:
-        DebugUtilsLabelScoped(vk::CommandBuffer& cmdBuffer, std::string const& name, vk::ArrayWrapper1D<float, 4> color): cmdBuffer(cmdBuffer) {
-            cmdBuffer.beginDebugUtilsLabelEXT(vk::DebugUtilsLabelEXT{ .pLabelName = name.c_str(), .color = color });
-        }
-        ~DebugUtilsLabelScoped() {
-            cmdBuffer.endDebugUtilsLabelEXT();
-        } 
-    private:
-        vk::CommandBuffer& cmdBuffer;
-    };
-}

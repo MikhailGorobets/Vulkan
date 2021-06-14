@@ -155,7 +155,7 @@ public:
                 };
 
                 vma::AllocationCreateInfo allocationCI = {
-                    .flags = vma::AllocationCreateFlagBits::eMapped,
+                    .flags = vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eWithinBudget,
                     .usage = vma::MemoryUsage::eCpuToGpu,
                 };
 
@@ -179,7 +179,7 @@ public:
                 };
 
                 vma::AllocationCreateInfo allocationCI = {
-                    .flags = vma::AllocationCreateFlagBits::eMapped,
+                    .flags = vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eWithinBudget,
                     .usage = vma::MemoryUsage::eCpuToGpu,
                 };
 
@@ -279,6 +279,7 @@ private:
             };
 
             vma::AllocationCreateInfo allocationCI = {
+                .flags = vma::AllocationCreateFlagBits::eWithinBudget,
                 .usage = vma::MemoryUsage::eGpuOnly
             };
 
@@ -311,7 +312,7 @@ private:
             };
 
             vma::AllocationCreateInfo allocationCI = {
-                .flags = vma::AllocationCreateFlagBits::eMapped,
+                .flags = vma::AllocationCreateFlagBits::eMapped | vma::AllocationCreateFlagBits::eWithinBudget,
                 .usage = vma::MemoryUsage::eCpuOnly
             };
 
@@ -376,15 +377,11 @@ private:
         pCmdBuffer->end();
 
         vk::Queue queue = device.getQueue(indexQueueFamily, 0);
+        vk::CommandBuffer cmdBuffers[] = { pCmdBuffer.get() };
 
         vk::SubmitInfo submitDesc = {
-            .waitSemaphoreCount = 0,
-            .pWaitSemaphores = nullptr,
-            .pWaitDstStageMask = nullptr,
-            .commandBufferCount = 1,
-            .pCommandBuffers = pCmdBuffer.getAddressOf(),
-            .signalSemaphoreCount = 0,
-            .pSignalSemaphores = nullptr
+            .commandBufferCount = _countof(cmdBuffers),
+            .pCommandBuffers = cmdBuffers
         };
 
         queue.submit({ submitDesc }, *pFence);
@@ -683,15 +680,15 @@ private:
 
 ImGui_ImplVulkan* g_pImGuiImplementVulkan;
 
-void ImGui_ImplVulkan_Init(vk::Device device, vk::PhysicalDevice adapter, vma::Allocator allocator, vk::RenderPass renderPass, uint32_t countFrameInFlight) {
-    g_pImGuiImplementVulkan = new ImGui_ImplVulkan(ImGui_ImplVulkanDesc{ .Device = device, .Adapter = adapter,  .RenderPass = renderPass, .Allocator = allocator, .FrameInFlight = countFrameInFlight });
+void ImGui_ImplVulkan_Init(vk::Device device, vk::PhysicalDevice adapter, vma::Allocator allocator, vk::RenderPass renderPass, std::optional<uint32_t> frameIndex) {
+    g_pImGuiImplementVulkan = new ImGui_ImplVulkan(ImGui_ImplVulkanDesc{ .Device = device, .Adapter = adapter,  .RenderPass = renderPass, .Allocator = allocator, .FrameInFlight = frameIndex.value_or(1) });
 }
 
 void ImGui_ImplVulkan_Shutdown() {
     delete g_pImGuiImplementVulkan;
 }
 
-void ImGui_ImplVulkan_NewFrame(vk::CommandBuffer commandBuffer, uint32_t frameIndex) {
-    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex);  
-    g_pImGuiImplementVulkan->DrawFrame(commandBuffer, frameIndex);
+void ImGui_ImplVulkan_NewFrame(vk::CommandBuffer commandBuffer, std::optional<uint32_t> frameIndex) {
+    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex.value_or(0));  
+    g_pImGuiImplementVulkan->DrawFrame(commandBuffer, frameIndex.value_or(0));
 }

@@ -81,10 +81,11 @@ namespace HAL {
     constexpr size_t InternalSize_Device    = 200;
     constexpr size_t InternalSize_SwapChain = 360;
     constexpr size_t InternalSize_Fence     = 40;
-    constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
     constexpr size_t InternalSize_CommandList = 32;
+    constexpr size_t InternalSize_RenderPass = 144;
+    constexpr size_t InternalSize_ShaderCompiler = 56;
 #else
     constexpr size_t InternalSize_Adapter   = 2480;
     constexpr size_t InternalSize_Instance  = 104; 
@@ -95,6 +96,8 @@ namespace HAL {
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
     constexpr size_t InternalSize_CommandList = 32;
+    constexpr size_t InternalSize_RenderPass = 120;
+    constexpr size_t InternalSize_ShaderCompiler = 44;
 #endif
 
 }
@@ -136,5 +139,7 @@ namespace vk {
     class PipelineCache;
     class Semaphore;
     class ImageView;
+    class RenderPassCreateInfo;
     enum class Format;
+    
 }

@@ -6,13 +6,16 @@
 namespace HAL {
 
     Device::Internal::Internal(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo) {
-           
+              
         const char* DEVICE_EXTENSION[] = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_MAINTENANCE1_EXTENSION_NAME,
             VK_GOOGLE_HLSL_FUNCTIONALITY1_EXTENSION_NAME,
             VK_GOOGLE_USER_TYPE_EXTENSION_NAME,
-            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME
+            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
+            VK_EXT_HDR_METADATA_EXTENSION_NAME,
+            VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME,
+            VK_AMD_DISPLAY_NATIVE_HDR_EXTENSION_NAME
         };
 
         auto pImplAdapter  = (Adapter::Internal*)(&adapter); 
@@ -83,7 +86,7 @@ namespace HAL {
         
         std::vector<const char*> deviceExtensions;
         for (size_t index = 0; index < _countof(DEVICE_EXTENSION); index++) {
-            if (vkx::isDeviceExtensionAvailable(pImplAdapter->GetExtensions(), DEVICE_EXTENSION[index])) {
+            if (pImplAdapter->IsExtensionSupported(DEVICE_EXTENSION[index])) {
                 deviceExtensions.push_back(DEVICE_EXTENSION[index]);
                 continue;
             }

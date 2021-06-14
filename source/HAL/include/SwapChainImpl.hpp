@@ -63,7 +63,8 @@ namespace HAL {
         std::queue<uint32_t>             m_BufferIndices = {};        
  
         bool m_IsVSyncEnabled = {};
-        bool m_IsSRGBEnabled = {};             
+        bool m_IsSRGBEnabled = {}; 
+        bool m_IsFullScreenExclusiveSupported = {};            
     };
 }
   

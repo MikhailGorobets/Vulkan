@@ -3,9 +3,9 @@
 
 namespace HAL {
     Adapter::Internal::Internal(vk::PhysicalDevice physicalDevice) {
-        m_Device = physicalDevice;
+        m_PhysicalDevice = physicalDevice;
         
-        auto deviceFeatures = m_Device.getFeatures2<
+        auto deviceFeatures = m_PhysicalDevice.getFeatures2<
              vk::PhysicalDeviceFeatures2,
              vk::PhysicalDeviceShaderFloat16Int8Features,
              vk::PhysicalDevice16BitStorageFeatures,
@@ -13,7 +13,7 @@ namespace HAL {
              vk::PhysicalDeviceImagelessFramebufferFeatures
         >();
            
-        auto deviceProperties = m_Device.getProperties2<
+        auto deviceProperties = m_PhysicalDevice.getProperties2<
             vk::PhysicalDeviceProperties2,
             vk::PhysicalDeviceDriverProperties,
             vk::PhysicalDeviceVulkan12Properties
@@ -29,8 +29,11 @@ namespace HAL {
         m_Properties.DriverProperties = deviceProperties.get<vk::PhysicalDeviceDriverProperties>();
         m_Properties.Vulkan12Properties = deviceProperties.get<vk::PhysicalDeviceVulkan12Properties>();
 
-        m_QueueFamilyProperies = m_Device.getQueueFamilyProperties();
-        m_Extensions = m_Device.enumerateDeviceExtensionProperties();        
+        m_QueueFamilyProperies = m_PhysicalDevice.getQueueFamilyProperties();
+        m_Extensions = m_PhysicalDevice.enumerateDeviceExtensionProperties();        
+    }
+    auto Adapter::Internal::IsExtensionSupported(std::string const& name) const -> bool {
+        return vkx::isDeviceExtensionAvailable(m_Extensions, name.c_str());
     }
 }
 

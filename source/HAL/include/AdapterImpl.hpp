@@ -30,14 +30,16 @@ namespace HAL {
 
         auto GetFeatures() const -> DeviceFeatures const& { return m_Features; }
         
-        auto GetPhysicalDevice() const -> vk::PhysicalDevice { return m_Device; }
+        auto GetPhysicalDevice() const -> vk::PhysicalDevice { return m_PhysicalDevice; }
 
         auto GetQueueFamilyProperty() const -> std::vector<vk::QueueFamilyProperties> const& { return m_QueueFamilyProperies; }
     
         auto GetExtensions() const -> std::vector<vk::ExtensionProperties> const& { return m_Extensions; }
 
+        auto IsExtensionSupported(std::string const& name) const -> bool;
+  
     private:
-        vk::PhysicalDevice                     m_Device;    
+        vk::PhysicalDevice                     m_PhysicalDevice;    
         DeviceProperties                       m_Properties;
         DeviceFeatures                         m_Features; 
         std::vector<vk::QueueFamilyProperties> m_QueueFamilyProperies;

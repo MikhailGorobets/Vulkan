@@ -1,8 +1,16 @@
 #pragma once
 
 #include <HAL/InternalPtr.hpp>
+#include <HAL/RenderPass.hpp>
 
 namespace HAL {
+
+    struct RenderPassBeginInfo {
+        const RenderPass*               pRenderPass = {};
+        const RenderPassAttachmentInfo* pAttachments = {};
+        uint32_t                        AttachmentCount = {};   
+    };
+    
     class CommandList: NonCopyable {
     public:
         class Internal;
@@ -20,6 +28,7 @@ namespace HAL {
         auto End() -> void;    
 
         auto GetVkCommandBuffer() const -> vk::CommandBuffer;
+
     protected:     
         InternalPtr<Internal, InternalSize_CommandList> m_pInternal;   
     };
@@ -37,5 +46,9 @@ namespace HAL {
     class GraphicsCommandList: public ComputeCommandList {
     public:
         GraphicsCommandList(GraphicsCommandAllocator const& allocator);
+
+        auto BeginRenderPass(RenderPassBeginInfo const& beginInfo) -> void;
+
+        auto EndRenderPass() -> void;
     };
 }

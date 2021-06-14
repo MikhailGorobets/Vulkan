@@ -5,13 +5,14 @@
 #include <imgui/imgui_impl_vulkan.h>
 #include <implot/implot.h>
 
+#define GLFW_INCLUDE_NONE 1
+
 #include <glfw/glfw3.h>
 #include <glfw/glfw3native.h>
 
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#include <hlslpp/hlsl++.h>
 
 #include <fstream>
 #include <chrono>
@@ -30,7 +31,9 @@
 #include <HAL/CommandQueue.hpp>
 #include <HAL/CommandAllocator.hpp>
 #include <HAL/CommandList.hpp>
-//#include <HAL/ShaderCompiler.hpp>
+#include <HAL/ShaderCompiler.hpp>
+
+#include <spirv_hlsl.hpp>
 
 
 struct ScrollingBuffer {
@@ -167,7 +170,7 @@ public:
         vmaGetAllocatorInfo(allocator, &allocatorInfo);
 
         vkx::setDebugName(vk::Device(allocatorInfo.device), vk::DeviceMemory(memory), fmt::format("Type: {0} Size: {1} kb", vk::to_string(memoryInfo), (size >> 10)));
-        fmt::print("Alloc -> Memory type: {0}, Size: {1} kb \n", vk::to_string(memoryInfo), (size >> 10));
+        fmt::print("GPU Allocation -> Memory type: {0}, Size: {1} kb \n", vk::to_string(memoryInfo), (size >> 10));
     }
     
     static auto GPUFree(VmaAllocator allocator, uint32_t memoryType, VkDeviceMemory memory, VkDeviceSize size, void* pUserData) -> void {
@@ -178,7 +181,7 @@ public:
 
          vk::MemoryPropertyFlags memoryInfo = {};
          vmaGetMemoryTypeProperties(allocator, memoryType, reinterpret_cast<VkMemoryPropertyFlags*>(&memoryInfo));
-         fmt::print("Free -> Memory type: {0}, Size: {1} kb \n", vk::to_string(memoryInfo), (size >> 10));    
+         fmt::print("GPU Free -> Memory type: {0}, Size: {1} kb \n", vk::to_string(memoryInfo), (size >> 10));    
     }
 
 private:
@@ -216,21 +219,7 @@ class MemoryStatisticCPU {
        
 namespace HAL {
     
-    struct RenderPassAttachmentInfo {
-        vk::ImageView       ImageView = {};
-        vk::ImageUsageFlags ImageUsage = {};
-        vk::ClearValue      ClearValue = {};
-        uint32_t            Width = {};
-        uint32_t            Height = {};
-        uint32_t            LayerCount = {};
-    };
 
-    struct RenderPassBeginInfo {
-        uint32_t                        AttachmentCount = {};
-        const RenderPassAttachmentInfo* pAttachments = {};
-        vk::Rect2D                      RenderArea = {};
-    };
-    
     struct AllocatorCreateInfo {    
         vma::AllocatorCreateFlags  Flags = {};  
         vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};
@@ -437,140 +426,7 @@ namespace HAL {
    // };
    //
    //
-    class RenderPass {
-    public:
-        RenderPass(Device const& pDevice, vk::RenderPassCreateInfo const& createInfo){        
-            m_pRenderPass = pDevice.GetVkDevice().createRenderPassUnique(createInfo); 
-            for(size_t index = 0; index < createInfo.attachmentCount; index++)
-                m_AttachmentsFormat.push_back(createInfo.pAttachments[index].format);      
-        }    
-    
-        auto BeginRenderPass(vk::CommandBuffer cmdBuffer, RenderPassBeginInfo const& beginInfo, vk::SubpassContents supbassContents) -> void {     
-    
-            std::vector<vk::FramebufferAttachmentImageInfo> frameBufferAttanchments;
-            std::vector<vk::ImageView>  frameBufferImageViews;
-            std::vector<vk::ClearValue> frameBufferClearValues;
-            
-            frameBufferAttanchments.reserve(std::size(m_AttachmentsFormat));      
-            frameBufferImageViews.reserve(std::size(m_AttachmentsFormat));    
-            frameBufferClearValues.reserve(std::size(m_AttachmentsFormat));           
-    
-            uint32_t width = 0;
-            uint32_t height = 0;
-            uint32_t layerCount = 0;
-            
-            for(size_t index = 0; index < std::size(m_AttachmentsFormat); index++) {
-                width = std::max(width, beginInfo.pAttachments[index].Width);
-                height = std::max(height, beginInfo.pAttachments[index].Height);
-                layerCount = std::max(layerCount, beginInfo.pAttachments[index].LayerCount);
 
-                vk::FramebufferAttachmentImageInfo framebufferAttachmentImageInfo = {
-                    .usage = beginInfo.pAttachments[index].ImageUsage, 
-                    .width = beginInfo.pAttachments[index].Width,
-                    .height = beginInfo.pAttachments[index].Height, 
-                    .layerCount = beginInfo.pAttachments[index].LayerCount,
-                    .viewFormatCount = 1,
-                    .pViewFormats = &m_AttachmentsFormat[index]  
-                };
-                frameBufferAttanchments.push_back(framebufferAttachmentImageInfo);
-                frameBufferImageViews.push_back(beginInfo.pAttachments[index].ImageView);
-                frameBufferClearValues.push_back(beginInfo.pAttachments[index].ClearValue);
-            }
-            
-            FrameBufferCacheKey key = { std::move(frameBufferAttanchments), width, height, layerCount };           
-         
-            if (m_FrameBufferCache.find(key) == m_FrameBufferCache.end()){
-                 vk::StructureChain<vk::FramebufferCreateInfo, vk::FramebufferAttachmentsCreateInfo> framebufferCI = {
-                     vk::FramebufferCreateInfo { 
-                         .flags = vk::FramebufferCreateFlagBits::eImageless,
-                         .renderPass = *m_pRenderPass,
-                         .attachmentCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
-                         .width  = width,
-                         .height = height,
-                         .layers = layerCount
-                     },
-                     vk::FramebufferAttachmentsCreateInfo{ 
-                         .attachmentImageInfoCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
-                         .pAttachmentImageInfos = std::data(key.FramebufferAttachment)
-                     }
-                 };                              
-                 m_FrameBufferCache.emplace(key, m_pRenderPass.getOwner().createFramebufferUnique(framebufferCI.get<vk::FramebufferCreateInfo>()));        
-            }
-           
-            vk::StructureChain<vk::RenderPassBeginInfo, vk::RenderPassAttachmentBeginInfo> renderPassBeginInfo = {
-                vk::RenderPassBeginInfo { 
-                    .renderPass  = *m_pRenderPass, 
-                    .framebuffer = *m_FrameBufferCache[key], 
-                    .renderArea = beginInfo.RenderArea, 
-                    .clearValueCount = static_cast<uint32_t>(std::size(frameBufferClearValues)), 
-                    .pClearValues = std::data(frameBufferClearValues)
-                },
-                vk::RenderPassAttachmentBeginInfo { 
-                    .attachmentCount = static_cast<uint32_t>(std::size(frameBufferImageViews)), 
-                    .pAttachments = std::data(frameBufferImageViews)
-                }
-            };
-            cmdBuffer.beginRenderPass(renderPassBeginInfo.get<vk::RenderPassBeginInfo>(), supbassContents);    
-        }
-    
-        auto NextSubpass(vk::CommandBuffer cmdBuffer, vk::SubpassContents supbassContents)  -> void {
-             cmdBuffer.nextSubpass(supbassContents);
-        }
-    
-        auto EndRenderPass(vk::CommandBuffer cmdBuffer) -> void {
-            cmdBuffer.endRenderPass();
-        }
-        
-        auto GetVkRenderPass() const -> vk::RenderPass { return *m_pRenderPass; }
-    
-    private:
-        struct FrameBufferCacheKey {
-            std::vector<vk::FramebufferAttachmentImageInfo> FramebufferAttachment = {};
-            uint32_t Width  = {};
-            uint32_t Height = {};
-            uint32_t Layers = {};
-            
-            bool operator==(const FrameBufferCacheKey& rhs) const {
-                if (Width != rhs.Width || Height != rhs.Height || Layers != rhs.Layers || std::size(FramebufferAttachment) != std::size(rhs.FramebufferAttachment))
-                    return false;
-                
-                for(size_t index = 0; index < std::size(FramebufferAttachment); index++){
-                    if (FramebufferAttachment[index].usage != rhs.FramebufferAttachment[index].usage ||
-                        FramebufferAttachment[index].pViewFormats[0] != rhs.FramebufferAttachment[index].pViewFormats[0] ||
-                        FramebufferAttachment[index].width != rhs.FramebufferAttachment[index].width ||
-                        FramebufferAttachment[index].height != rhs.FramebufferAttachment[index].height ||
-                        FramebufferAttachment[index].layerCount != rhs.FramebufferAttachment[index].layerCount)
-                        return false;
-                }              
-                return true;
-            }    
-        };
-        
-        struct FrameBufferCacheKeyHash {
-            std::size_t operator()(FrameBufferCacheKey const& key) const noexcept {
-                size_t hash = 0;
-                std::hash_combine(hash, key.Width);
-                std::hash_combine(hash, key.Height);
-                std::hash_combine(hash, key.Layers);
-   
-                for(size_t index = 0; index < std::size(key.FramebufferAttachment); index++) {
-                    std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].usage));
-                    std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].pViewFormats[0]));
-                    std::hash_combine(hash, key.FramebufferAttachment[index].width);
-                    std::hash_combine(hash, key.FramebufferAttachment[index].height);
-                    std::hash_combine(hash, key.FramebufferAttachment[index].layerCount);         
-                }
-                return hash;            
-            }
-        };
-        
-        using FrameBufferCache = std::unordered_map<FrameBufferCacheKey, vk::UniqueFramebuffer, FrameBufferCacheKeyHash>;   
-   
-    private:
-        FrameBufferCache          m_FrameBufferCache = {};
-        vk::UniqueRenderPass      m_pRenderPass = {};
-        std::vector<vk::Format>   m_AttachmentsFormat = {};
-    };
 }
 
 
@@ -579,7 +435,6 @@ int main(int argc, char* argv[]) {
     auto const WINDOW_TITLE = "Application Vulkan";
     auto const WINDOW_WIDTH  = 1920;
     auto const WINDOW_HEIGHT = 1280;
-    auto const BUFFER_COUNT  = 3u;
  
     struct GLFWScoped {
          GLFWScoped() { 
@@ -588,9 +443,9 @@ int main(int argc, char* argv[]) {
          }
         ~GLFWScoped() { glfwTerminate(); }
     } GLFW;
-   
-    std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> pWindow(glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr), glfwDestroyWindow);
 
+    std::unique_ptr<GLFWwindow, decltype(&glfwDestroyWindow)> pWindow(glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr), glfwDestroyWindow);
+    
     std::unique_ptr<HAL::Instance> pHALInstance; {
         HAL::InstanceCreateInfo instanceCI = {
             .IsEnableValidationLayers = true
@@ -605,6 +460,7 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }    
 
+
     std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
             .Width = WINDOW_WIDTH,
@@ -615,6 +471,7 @@ int main(int argc, char* argv[]) {
         };
         pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
+
 
     auto pHALGraphicsCommandQueue = &pHALDevice->GetGraphicsCommandQueue();
     auto pHALComputeCommandQueue  = &pHALDevice->GetComputeCommandQueue();
@@ -634,8 +491,7 @@ int main(int argc, char* argv[]) {
                 .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
                 .pfnFree     = MemoryStatisticGPU::GPUFree,
                 .pUserData   = &memoryGPU,
-            },
-            .FrameInUseCount = BUFFER_COUNT
+            }
         };
         pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
     }
@@ -674,17 +530,24 @@ int main(int argc, char* argv[]) {
         pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
 
-    std::vector<HAL::GraphicsCommandList> HALCommandLists;
-    std::vector<HAL::Fence> HALFences;
-   
-    for(size_t index = 0; index < BUFFER_COUNT; index++) {
-        HALCommandLists.push_back(HAL::GraphicsCommandList(*pHALGraphicsCmdAllocator));
-        HALFences.push_back(HAL::Fence(*pHALDevice, 0));
+    auto pHALCommandList = std::make_unique<HAL::GraphicsCommandList>(*pHALGraphicsCmdAllocator);
+    auto pHALFence = std::make_unique<HAL::Fence>(*pHALDevice);
+    
+    std::unique_ptr<HAL::ShaderCompiler> pHALCompiler;
+    {
+        HAL::ShaderCompilerCreateInfo shaderCompilerCI = {
+            .ShaderModelVersion = HAL::ShaderModel::SM_6_5, 
+            .IsDebugMode = true 
+        };
+        pHALCompiler = std::make_unique< HAL::ShaderCompiler>(shaderCompilerCI);
     }
 
-   
-    
-   // HAL::ShaderCompiler compiler = { HAL::ShaderCompilerCreateInfo{ .ShaderModelVersion = HAL::ShaderModel::SM_6_5, .IsDebugMode = true } };
+    auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
+    auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Pixel,  {});
+  
+    spirv_cross::CompilerHLSL compilerVS(std::move(spirvVS.value()));
+
+
    //
    // vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
    //     vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
@@ -835,8 +698,7 @@ int main(int argc, char* argv[]) {
     ImPlot::GetStyle().AntiAliasedLines = true;
    
     ImGui_ImplGlfw_InitForVulkan(pWindow.get(), true);
-    ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALAllocator->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass(), BUFFER_COUNT);
-
+    ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALAllocator->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass());
 
     float CPUFrameTime = 0.0f;
     float GPUFrameTime = 0.0f;
@@ -846,6 +708,7 @@ int main(int argc, char* argv[]) {
         HAL::SwapChain*    pSwapChain;
     } GLFWUserData = { pHALComputeCommandQueue, pHALSwapChain.get() };
 
+   
     glfwSetWindowUserPointer(pWindow.get(), &GLFWUserData);
     glfwSetWindowSizeCallback(pWindow.get(), [](GLFWwindow* pWindow, int32_t width, int32_t height)-> void {
         glfwWaitEvents();
@@ -966,49 +829,33 @@ int main(int argc, char* argv[]) {
    
         int32_t width  = 0;
         int32_t height = 0;
-        glfwGetWindowSize(pWindow.get(), &width, &height);
-        
-        static uint64_t frameCount = 0;
-        uint64_t bufferID = frameCount++ % BUFFER_COUNT;
-
-        auto pHALFence = &HALFences[bufferID];
-        auto pHALCommandList = &HALCommandLists[bufferID];
-     
+        glfwGetWindowSize(pWindow.get(), &width, &height);    
+  
         //Wait until the previous frame is finished
         if (!pHALFence->IsCompleted())        
             pHALFence->Wait(pHALFence->GetExpectedValue());
         
         //Acquire Image and signal fence
         uint32_t frameID = pHALComputeCommandQueue->NextImage(*pHALSwapChain, *pHALFence, pHALFence->Increment());
-        pHALAllocator->NextFrame();
      
         //Render pass
         pHALCommandList->Begin();
         {
-                  
-            vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
-            vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
-     
             HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
                 HAL::RenderPassAttachmentInfo {
                     .ImageView =  pHALSwapChain->GetImageView(frameID),
                     .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 0.1f, 0.1f, 0.1f, 1.0f } }},
+                    .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> {0.5f, 0.5f, 0.5f, 1.0f } }},
                     .Width = static_cast<uint32_t>(width),
                     .Height = static_cast<uint32_t>(height),
                     .LayerCount = 1            
                 }         
             };
-            
-            HAL::RenderPassBeginInfo renderPassBeginInfo = {
-                .AttachmentCount = _countof(renderPassAttachments),
-                .pAttachments = renderPassAttachments,
-                .RenderArea = scissor       
-            };       
-        
-            pHALRenderPass->BeginRenderPass(pHALCommandList->GetVkCommandBuffer(), renderPassBeginInfo, vk::SubpassContents::eInline);               
-            ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer(), bufferID);                   
-            pHALRenderPass->EndRenderPass(pHALCommandList->GetVkCommandBuffer());
+
+            pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});       
+            ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());                   
+            pHALCommandList->EndRenderPass();
+
         }
         pHALCommandList->End();
      
@@ -1022,73 +869,6 @@ int main(int argc, char* argv[]) {
         pHALComputeCommandQueue->Present(*pHALSwapChain, frameID, *pHALFence);
 
 
-   //
-   //     //------------------------------//
-   //     uint64_t currentFrameID  = pHALSwapChain->GetCurrentFrame();
-   //     uint64_t currentBufferID = pHALSwapChain->GetCurrentBuffer();
-   //
-   //     pHALSwapChain->AcquireNextImage(*pHALFence, fenceIndices[currentBufferID]); //Wait Previous Frame
-   //
-
-        //Record new Command buffer
-
-        //vk::Rect2D   scissor  = { .offset = { .x = 0, .y = 0 }, .extent = { .width = static_cast<uint32_t>(width), .height = static_cast<uint32_t>(height) } };
-        //vk::Viewport viewport = { .x = 0, .y = static_cast<float>(height), .width = static_cast<float>(width), .height = -static_cast<float>(height), .minDepth = 0.0f, .maxDepth = 1.0f };
-        //
-        //vk::UniqueCommandBuffer& pCmdBuffer = commandLists[currentBufferIndex];
-        //vk::UniqueQueryPool& pQueryPool = queryPools[currentBufferIndex];
-        //
-        //pCmdBuffer->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-        //pCmdBuffer->resetQueryPool(*pQueryPool, 0, 2);
-        //pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 0);
-        //{
-        //    vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Begin Frame", std::array<float, 4>{ 1.0f, 0.0f, 0.0f, 1.0f } };
-        //    
-        //    HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
-        //        HAL::RenderPassAttachmentInfo {
-        //            .ImageView =  pHALSwapChain->GetCurrentImageView(),
-        //            .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
-        //            .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> { 0.0f, 0.0f, 0.0f, 1.0f } }},
-        //            .Width = static_cast<uint32_t>(width),
-        //            .Height = static_cast<uint32_t>(height),
-        //            .LayerCount = 1            
-        //        }         
-        //    };
-        //    
-        //    HAL::RenderPassBeginInfo renderPassBeginInfo = {
-        //        .AttachmentCount = _countof(renderPassAttachments),
-        //        .pAttachments = renderPassAttachments,
-        //        .RenderArea = scissor,
-        //        .FramebufferWidth  = static_cast<uint32_t>(width),
-        //        .FramebufferHeight = static_cast<uint32_t>(height),
-        //        .FramebufferLayers = 1            
-        //    };       
-        //
-        //    pHALRenderPass->BeginRenderPass(*pCmdBuffer, renderPassBeginInfo, vk::SubpassContents::eInline);           
-        //    {
-        //        vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render Color", std::array<float, 4>{ 0.0f, 1.0f, 0.0f, 1.0f } };
-        //        pCmdBuffer->bindPipeline(vk::PipelineBindPoint::eGraphics, *pPipeline);         
-        //        pCmdBuffer->setScissor(0, { scissor });
-        //        pCmdBuffer->setViewport(0, { viewport });
-        //        pCmdBuffer->draw(3, 1, 0, 0);
-        //    }  
-        //
-        //    {
-        //        vkx::DebugUtilsLabelScoped debug{ *pCmdBuffer, "Render GUI", std::array<float, 4>{ 0.0f, 0.0f, 1.0f, 1.0f } };
-        //        ImGui_ImplVulkan_NewFrame(*pCmdBuffer, currentBufferIndex);
-        //    }
-        //    pHALRenderPass->EndRenderPass(*pCmdBuffer);
-        //}
-        //pCmdBuffer->writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, *pQueryPool, 1);
-        //pCmdBuffer->end();
-        //
-
-        //Excecute command buffer and set signal after execution
-
-        //pHALCommandQueue->ExecuteCommandList(nullptr, 0);
-        //pHALCommandQueue->Signal(*pHALFence, fenceValue);
-        //pHALSwapChain->Present(); // Signal Present Engine 
-              
 
         //------------------------------//
 

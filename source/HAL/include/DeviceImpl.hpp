@@ -31,6 +31,8 @@ namespace HAL {
 
         auto GetPipelineCache() const -> vk::PipelineCache { return *m_pPipelineCache; }
 
+
+
     private:      
         vk::UniqueDevice        m_pDevice = {};  
         vk::PhysicalDevice      m_PhysicalDevice = {};
