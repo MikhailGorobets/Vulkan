@@ -97,7 +97,7 @@ namespace HAL {
     constexpr size_t InternalSize_CommandAllocator = 32;
     constexpr size_t InternalSize_CommandList = 32;
     constexpr size_t InternalSize_RenderPass = 120;
-    constexpr size_t InternalSize_ShaderCompiler = 44;
+    constexpr size_t InternalSize_ShaderCompiler = 56;
 #endif
 
 }
