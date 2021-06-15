@@ -1,7 +1,6 @@
 #include <vulkan/vulkan_decl.h>
 #include <imgui/imgui_impl_vulkan.h>
 
-#include <dxc/dxcapi.use.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 
