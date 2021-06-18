@@ -9,10 +9,8 @@ namespace HAL {
     public:
         struct DeviceFeatures {
             vk::PhysicalDeviceFeatures Features = {};
-            vk::PhysicalDeviceShaderFloat16Int8Features ShaderFloat16Int8Features = {};
-            vk::PhysicalDevice16BitStorageFeatures Shader16BitStorageFeatures = {};
-            vk::PhysicalDeviceTimelineSemaphoreFeatures TimelineSemaphoreFeatures = {};
-            vk::PhysicalDeviceImagelessFramebufferFeatures ImagelessFramebufferFeatures = {};          
+            vk::PhysicalDeviceVulkan12Features Vulkan12Features = {};
+            vk::PhysicalDevice16BitStorageFeatures Shader16BitStorageFeatures = {};    
         };
         
         struct DeviceProperties {

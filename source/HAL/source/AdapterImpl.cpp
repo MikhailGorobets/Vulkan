@@ -7,10 +7,8 @@ namespace HAL {
         
         auto deviceFeatures = m_PhysicalDevice.getFeatures2<
              vk::PhysicalDeviceFeatures2,
-             vk::PhysicalDeviceShaderFloat16Int8Features,
-             vk::PhysicalDevice16BitStorageFeatures,
-             vk::PhysicalDeviceTimelineSemaphoreFeatures,
-             vk::PhysicalDeviceImagelessFramebufferFeatures
+             vk::PhysicalDeviceVulkan12Features,
+             vk::PhysicalDevice16BitStorageFeatures
         >();
            
         auto deviceProperties = m_PhysicalDevice.getProperties2<
@@ -20,10 +18,8 @@ namespace HAL {
         >(); 
 
         m_Features.Features = deviceFeatures.get<vk::PhysicalDeviceFeatures2>().features;
-        m_Features.ShaderFloat16Int8Features = deviceFeatures.get<vk::PhysicalDeviceShaderFloat16Int8Features>().setPNext(nullptr);
+        m_Features.Vulkan12Features = deviceFeatures.get<vk::PhysicalDeviceVulkan12Features>().setPNext(nullptr);
         m_Features.Shader16BitStorageFeatures = deviceFeatures.get<vk::PhysicalDevice16BitStorageFeatures>().setPNext(nullptr);
-        m_Features.TimelineSemaphoreFeatures = deviceFeatures.get<vk::PhysicalDeviceTimelineSemaphoreFeatures>().setPNext(nullptr);
-        m_Features.ImagelessFramebufferFeatures = deviceFeatures.get<vk::PhysicalDeviceImagelessFramebufferFeatures>().setPNext(nullptr);
 
         m_Properties.Properties = deviceProperties.get<vk::PhysicalDeviceProperties2>().properties;
         m_Properties.DriverProperties = deviceProperties.get<vk::PhysicalDeviceDriverProperties>();

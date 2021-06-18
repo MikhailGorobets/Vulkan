@@ -32,7 +32,7 @@ namespace HAL {
                 case ShaderStage::Geometry: return L"gs";
                 case ShaderStage::Hull:     return L"hs";
                 case ShaderStage::Domain:   return L"ds";
-                case ShaderStage::Pixel:    return L"ps";
+                case ShaderStage::Fragment:    return L"ps";
                 case ShaderStage::Compute:  return L"cs";
                 default: return std::nullopt;
             }
@@ -68,6 +68,13 @@ namespace HAL {
         if (auto result = m_pDxcCompiler->Compile(&dxcBuffer, std::data(dxcArguments), static_cast<uint32_t>(std::size(dxcArguments)), m_pDxcIncludeHandler, IID_PPV_ARGS(&pDxcCompileResult)); SUCCEEDED(result)) {
             ComPtr<IDxcBlob> pDxcShaderCode;
             ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxcShaderCode), nullptr));
+            
+            //TODO
+            ComPtr<IDxcBlobUtf8> pDxcErrors;
+            ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pDxcErrors), nullptr));
+            if (pDxcErrors && pDxcErrors->GetStringLength() > 0)
+                fmt::print("Error: {}\n", static_cast<const char*>(pDxcErrors->GetBufferPointer()));
+
             return std::vector<uint32_t>(static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()), static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()) + pDxcShaderCode->GetBufferSize() / 4);
         } else {
             ComPtr<IDxcBlobUtf8> pDxcErrors;

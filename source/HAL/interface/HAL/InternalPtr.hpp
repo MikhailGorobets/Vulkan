@@ -76,7 +76,7 @@ namespace HAL {
 
 #ifdef _DEBUG
 
-    constexpr size_t InternalSize_Adapter   = 2496;
+    constexpr size_t InternalSize_Adapter   = 2632;
     constexpr size_t InternalSize_Instance  = 128; 
     constexpr size_t InternalSize_Device    = 200;
     constexpr size_t InternalSize_SwapChain = 360;

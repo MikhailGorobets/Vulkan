@@ -15,8 +15,10 @@ namespace HAL {
             VK_EXT_MEMORY_BUDGET_EXTENSION_NAME,
             VK_EXT_HDR_METADATA_EXTENSION_NAME,
             VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME,
+            VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
             VK_AMD_DISPLAY_NATIVE_HDR_EXTENSION_NAME
         };
+        
 
         auto pImplAdapter  = (Adapter::Internal*)(&adapter); 
         auto pImplInstance = (Instance::Internal*)(&instance); 
@@ -57,31 +59,40 @@ namespace HAL {
 
         auto const& deviceFeatures = pImplAdapter->GetFeatures();
         
-        if (!deviceFeatures.TimelineSemaphoreFeatures.timelineSemaphore) {
+        if (!deviceFeatures.Vulkan12Features.timelineSemaphore) {
             fmt::print("Error: Vulkan Device dosen't support vk::PhysicalDeviceTimelineSemaphoreFeatures \n");
         }
         
-        if (!deviceFeatures.ImagelessFramebufferFeatures.imagelessFramebuffer) {
+        if (!deviceFeatures.Vulkan12Features.imagelessFramebuffer) {
             fmt::print("Error: Vulkan Device dosen't support vk::PhysicalDeviceImagelessFramebufferFeatures \n");    
         }
+      
 
         vk::StructureChain<
-            vk::PhysicalDeviceFeatures2,
-            vk::PhysicalDeviceShaderFloat16Int8Features,
+            vk::PhysicalDeviceFeatures2,    
             vk::PhysicalDevice16BitStorageFeatures,
-            vk::PhysicalDeviceImagelessFramebufferFeatures,
-            vk::PhysicalDeviceTimelineSemaphoreFeatures
+            vk::PhysicalDeviceVulkan12Features
         > enabledFeatures = {
             vk::PhysicalDeviceFeatures2 {
                 .features = vk::PhysicalDeviceFeatures {
                     .shaderInt64 = deviceFeatures.Features.shaderInt64,
                     .shaderInt16 = deviceFeatures.Features.shaderInt16,
                 }
-            },
-            deviceFeatures.ShaderFloat16Int8Features,
+            },       
             deviceFeatures.Shader16BitStorageFeatures,
-            deviceFeatures.ImagelessFramebufferFeatures,
-            deviceFeatures.TimelineSemaphoreFeatures
+            vk::PhysicalDeviceVulkan12Features {
+                .shaderFloat16 = deviceFeatures.Vulkan12Features.shaderFloat16,
+                .shaderInt8 = deviceFeatures.Vulkan12Features.shaderInt8,
+                .descriptorIndexing = deviceFeatures.Vulkan12Features.descriptorIndexing,
+                .shaderUniformBufferArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderUniformBufferArrayNonUniformIndexing,
+                .shaderSampledImageArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderSampledImageArrayNonUniformIndexing,
+                .shaderStorageBufferArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderStorageBufferArrayNonUniformIndexing,
+                .shaderStorageImageArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderStorageImageArrayNonUniformIndexing,
+                .descriptorBindingPartiallyBound = deviceFeatures.Vulkan12Features.descriptorBindingPartiallyBound,
+                .descriptorBindingVariableDescriptorCount = deviceFeatures.Vulkan12Features.descriptorBindingVariableDescriptorCount,              
+                .imagelessFramebuffer = deviceFeatures.Vulkan12Features.imagelessFramebuffer,
+                .timelineSemaphore = deviceFeatures.Vulkan12Features.timelineSemaphore,               
+            },
         };
         
         std::vector<const char*> deviceExtensions;

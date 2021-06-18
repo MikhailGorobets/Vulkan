@@ -302,17 +302,34 @@ namespace HAL {
         
     };    
  
+
+    class BufferView {
+    };
+
     class Buffer {
     public:
         Buffer(MemoryAllocator const& allocator, BufferCreateInfo const& createInfo) {
-            
+            vk::BufferCreateInfo bufferCI = {
+              
+            };
+
+            vma::AllocationCreateInfo allocationCI = {
+                
+            };
+
         }
  
+        auto GetDefaultView() -> void;
+
     private:
         vma::UniqueAllocation m_pAllocation;
         vk::UniqueBuffer      m_pBuffer;
     };
  
+    class TextureView {
+
+    };
+
     class Texture {
     public:
         Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) {
@@ -323,12 +340,16 @@ namespace HAL {
                 
             };
         }
- 
+        
+        auto GetDefaultView() -> void;
+
     private:
         vma::UniqueAllocation m_pAllocation;
         vk::UniqueImage       m_pImage;
     };
  
+    class Sampler;
+
 //
 //    struct ShaderByteCode {
 //        const char* pName = {};
@@ -430,6 +451,48 @@ namespace HAL {
 }
 
 
+
+//bool operator==(const ResourceBinding& lhs, const ResourceBinding& rhs) {
+//    return lhs.Name == rhs.Name &&
+//           lhs.SetID == rhs.SetID &&
+//           lhs.BindingID == rhs.BindingID &&
+//           lhs.DescriptorCount == lhs.DescriptorCount &&
+//           lhs.DescriptorType == lhs.DescriptorType;
+//};
+//
+//namespace std {
+//    template<> struct hash<ResourceBinding> {
+//        std::size_t operator()(ResourceBinding const& value) const noexcept {
+//            std::size_t h1 = std::hash<uint32_t>{}(value.SetID);
+//            std::size_t h2 = std::hash<uint32_t>{}(value.BindingID);
+//            return h1 ^ (h2 << 1); 
+//        }
+//    };
+//}
+
+struct ResourceBinding {
+    uint32_t             SetID;
+    uint32_t             BindingID;
+    uint32_t             DescriptorCount;
+    vk::DescriptorType   DescriptorType;
+    vk::ShaderStageFlags Stages; 
+};
+
+bool operator==(ResourceBinding const& lhs, ResourceBinding const& rhs) {
+    return lhs.SetID == rhs.SetID && lhs.BindingID == rhs.BindingID && lhs.DescriptorCount == rhs.DescriptorCount && lhs.DescriptorType == rhs.DescriptorType;
+}
+
+namespace std {
+    template<> struct hash<ResourceBinding> {
+        std::size_t operator()(ResourceBinding const& s) const noexcept {
+            std::size_t h1 = std::hash<uint32_t>{}(s.SetID);
+            std::size_t h2 = std::hash<uint32_t>{}(s.BindingID);
+            return h1 ^ (h2 << 1);
+        }
+    };
+}
+
+
 int main(int argc, char* argv[]) {
     
     auto const WINDOW_TITLE = "Application Vulkan";
@@ -460,6 +523,149 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }    
 
+    
+    class ComputePipeline {
+        
+    };
+
+    class PiplineLayout {
+     
+    };
+
+    class DescriptorAllocator;
+
+    class DescriptorTable {
+    public:
+        auto SetTextureViews(uint32_t slot, HAL::ArrayProxy<HAL::TextureView> const& textures) -> void {          
+            vk::DescriptorImageInfo imageInfo = {
+
+            };
+        }
+        
+        auto SetBufferViews(uint32_t slot, HAL::ArrayProxy<HAL::BufferView> const& buffers) -> void {
+            vk::DescriptorBufferInfo bufferInfo = {
+                
+            };
+
+        }
+        
+        auto SetSamplers(uint32_t slot, HAL::ArrayProxy<HAL::Sampler> const& samplers) -> void {
+            vk::DescriptorImageInfo samplerInfo = {
+                
+            };                 
+        }
+
+        auto UpdateDescriptors() -> void {
+
+            std::vector<vk::WriteDescriptorSet> descriptortWrites;
+                      
+            descriptortWrites.push_back(vk::WriteDescriptorSet {
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsUniformBuffer)),
+                .descriptorType = vk::DescriptorType::eUniformBufferDynamic,           
+                .pBufferInfo = std::data(m_DescriptorsUniformBuffer)              
+            });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet {
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsStorageBuffer)),
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .pBufferInfo = std::data(m_DescriptorsStorageBuffer)
+            });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet {
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageSampled)),
+                .descriptorType = vk::DescriptorType::eSampledImage,
+                .pImageInfo = std::data(m_DescriptorsImageSampled)
+            });
+        
+            descriptortWrites.push_back(vk::WriteDescriptorSet {
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageStorage)),
+                .descriptorType = vk::DescriptorType::eStorageImage,
+                .pImageInfo = std::data(m_DescriptorsImageStorage)
+            });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet {
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsSampler)),
+                .descriptorType = vk::DescriptorType::eSampler,
+                .pImageInfo = std::data(m_DescriptorsSampler)
+            });
+
+            //m_pDescriptorSet.getOwner().updateDescriptorSets(std::size(descriptortWrites), std::data(descriptortWrites), 0, nullptr);
+        }        
+
+    private:
+        std::vector<vk::DescriptorBufferInfo> m_DescriptorsUniformBuffer;
+        std::vector<vk::DescriptorBufferInfo> m_DescriptorsStorageBuffer;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageSampled;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageStorage;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsSampler;
+
+        std::reference_wrapper<DescriptorAllocator> m_Allocator;
+        vk::DescriptorSet                           m_pDescriptorSet;
+    };
+
+    struct DescriptorAllocatorCreateInfo {
+        uint32_t UniformBufferCount;
+        uint32_t StorageBufferCount;
+        uint32_t SampledImageCount;
+        uint32_t StorageImageCount;
+        uint32_t SamplerCount;
+        uint32_t MaxSets;
+    };
+
+    class DescriptorAllocator {
+    public:
+        DescriptorAllocator(HAL::Device const& pDevice, DescriptorAllocatorCreateInfo const& createInfo) {
+            vk::DescriptorPoolSize descriptorPoolSizes[] = {
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = createInfo.UniformBufferCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = createInfo.StorageBufferCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampledImage, .descriptorCount = createInfo.SampledImageCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageImage, .descriptorCount = createInfo.StorageImageCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampler,.descriptorCount = createInfo.SamplerCount}
+            };
+
+            vk::DescriptorPoolCreateInfo descriptorPoolCI = {
+                .maxSets = createInfo.MaxSets,
+                .poolSizeCount = _countof(descriptorPoolSizes),
+                .pPoolSizes = descriptorPoolSizes               
+            };
+            m_pDescriptorPool = pDevice.GetVkDevice().createDescriptorPoolUnique(descriptorPoolCI);
+        }
+
+        auto Allocate(vk::DescriptorSetLayout layout, std::optional<uint32_t> dynamicDescriptorCount = std::nullopt) -> DescriptorTable {
+            
+            uint32_t pDescriptorCount[] = { dynamicDescriptorCount.value_or(0) };
+
+            vk::DescriptorSetLayout pDescriptorSetLayouts[] = {
+                layout
+            };
+
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo descriptorSetVariableDescriptorCountAI = {
+                .descriptorSetCount = _countof(pDescriptorCount),
+                .pDescriptorCounts = pDescriptorCount
+            };
+
+            vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo = {
+                .pNext = &descriptorSetVariableDescriptorCountAI,
+                .descriptorPool = m_pDescriptorPool.get(),
+                .descriptorSetCount = _countof(pDescriptorSetLayouts),
+                .pSetLayouts = pDescriptorSetLayouts
+            };
+
+            auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
+        }
+
+        auto Reset() -> void {
+            m_pDescriptorPool.getOwner().resetDescriptorPool(m_pDescriptorPool.get());
+        }
+
+        auto GetVkDescriptorPool() -> vk::DescriptorPool {
+            return m_pDescriptorPool.get();
+        }
+
+    private:
+        vk::UniqueDescriptorPool m_pDescriptorPool;
+    };
+    
 
     std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
@@ -471,7 +677,6 @@ int main(int argc, char* argv[]) {
         };
         pHALSwapChain = std::make_unique<HAL::SwapChain>(*pHALInstance, *pHALDevice, swapChainCI);
     }
-
 
     auto pHALGraphicsCommandQueue = &pHALDevice->GetGraphicsCommandQueue();
     auto pHALComputeCommandQueue  = &pHALDevice->GetComputeCommandQueue();
@@ -533,8 +738,7 @@ int main(int argc, char* argv[]) {
     auto pHALCommandList = std::make_unique<HAL::GraphicsCommandList>(*pHALGraphicsCmdAllocator);
     auto pHALFence = std::make_unique<HAL::Fence>(*pHALDevice);
     
-    std::unique_ptr<HAL::ShaderCompiler> pHALCompiler;
-    {
+    std::unique_ptr<HAL::ShaderCompiler> pHALCompiler; {
         HAL::ShaderCompilerCreateInfo shaderCompilerCI = {
             .ShaderModelVersion = HAL::ShaderModel::SM_6_5, 
             .IsDebugMode = true 
@@ -543,10 +747,124 @@ int main(int argc, char* argv[]) {
     }
 
     auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
-    auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Pixel,  {});
+    auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment,  {});
   
-    spirv_cross::CompilerHLSL compilerVS(std::move(spirvVS.value()));
+    spirv_cross::CompilerHLSL compilerVS(spirvVS.value());
+    spirv_cross::CompilerHLSL compilerPS(spirvPS.value());
 
+    auto ResolveDescriptorSetLayoutsForStage = [](spirv_cross::CompilerHLSL const& compiler) ->  std::vector<std::unordered_set<ResourceBinding>> {       
+        std::vector<std::unordered_set<ResourceBinding>> descriptorSets;
+
+        auto GetShaderStage = [](spv::ExecutionModel executionModel) ->  std::optional<vk::ShaderStageFlags> {
+            switch (executionModel) {
+                case spv::ExecutionModelVertex:
+                    return vk::ShaderStageFlagBits::eVertex;
+                case spv::ExecutionModelTessellationControl:
+                    return vk::ShaderStageFlagBits::eTessellationControl;
+                case spv::ExecutionModelTessellationEvaluation:
+                    return vk::ShaderStageFlagBits::eTessellationEvaluation;
+                case spv::ExecutionModelGeometry:
+                    return vk::ShaderStageFlagBits::eGeometry;
+                case spv::ExecutionModelFragment:
+                    return vk::ShaderStageFlagBits::eFragment;
+                case spv::ExecutionModelGLCompute:
+                    return vk::ShaderStageFlagBits::eCompute;
+            }
+            return {};
+        };    
+
+        auto ResolveBindingType = [&](vk::DescriptorType type, spirv_cross::SmallVector<spirv_cross::Resource> const& resources) -> void {
+            for (auto const& resource : resources) {
+                auto const& typeID = compiler.get_type(resource.type_id);
+
+                uint32_t setID = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                uint32_t index = compiler.get_decoration(resource.id, spv::DecorationBinding);
+                uint32_t count = typeID.array.empty() ? 1 : typeID.array[0];
+
+                if (setID >= descriptorSets.size())
+                    descriptorSets.resize(setID + 1ull);
+
+                descriptorSets[setID].emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
+            }
+        };
+
+        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+        ResolveBindingType(vk::DescriptorType::eUniformBuffer, resources.uniform_buffers);
+        ResolveBindingType(vk::DescriptorType::eStorageBuffer, resources.storage_buffers);
+        ResolveBindingType(vk::DescriptorType::eSampledImage, resources.sampled_images);
+        ResolveBindingType(vk::DescriptorType::eStorageImage, resources.storage_images);
+        ResolveBindingType(vk::DescriptorType::eSampler, resources.uniform_buffers);
+
+        return descriptorSets;
+    };
+
+    auto MergeStagesDescriptorSetsLayouts = [] (std::vector<std::unordered_set<ResourceBinding>> layout0, std::vector<std::unordered_set<ResourceBinding>> layout1) -> std::vector<std::unordered_set<ResourceBinding>> {
+        std::vector<std::unordered_set<ResourceBinding>> descriptorSets(std::max(std::size(layout0), std::size(layout1)));   
+        auto MergeBindings = [](std::unordered_set<ResourceBinding>& out, std::unordered_set<ResourceBinding> const& iterable) -> void {
+            for (auto& binding : iterable) {
+                if (auto value = out.find(binding); value != std::end(out)) {
+                   *(vk::ShaderStageFlags*)(&value->Stages) |= binding.Stages;
+                } else {
+                    out.insert(binding);
+                }
+            };
+        };
+
+        for (size_t setID = 0; setID < std::size(descriptorSets); setID++){
+            auto& bindings = descriptorSets[setID];
+            MergeBindings(bindings, layout0[setID]);
+            MergeBindings(bindings, layout1[setID]);
+        }     
+        return descriptorSets;
+    };
+
+    auto x = ResolveDescriptorSetLayoutsForStage(compilerVS);
+    auto y = ResolveDescriptorSetLayoutsForStage(compilerPS);
+    auto z = MergeStagesDescriptorSetsLayouts(x, y);
+    
+    std::vector<vk::UniqueDescriptorSetLayout> layouts;
+    
+    for(auto const& bindings: z) {
+        std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+        std::vector<vk::DescriptorBindingFlags> descriptorBindingFlags;
+        for (auto const& binding: bindings) {               
+            descriptorSetLayoutBindings.push_back(vk::DescriptorSetLayoutBinding {
+                .binding = binding.BindingID,
+                .descriptorType = binding.DescriptorType,
+                .descriptorCount = binding.DescriptorCount,
+                .stageFlags = binding.Stages
+            });
+
+            descriptorBindingFlags.push_back(binding.DescriptorCount > 0 ? vk::DescriptorBindingFlags{} : vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound);          
+        }
+        
+        vk::DescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCI = {
+             .bindingCount =  static_cast<uint32_t>(std::size(descriptorBindingFlags)),
+             .pBindingFlags = std::data(descriptorBindingFlags)
+        };
+
+        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
+           .pNext = &descriptorSetLayoutBindingFlagsCI,
+           .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size()),
+           .pBindings = descriptorSetLayoutBindings.data()
+        };
+        
+        layouts.push_back(pHALDevice->GetVkDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCI));
+    }
+
+    vk::UniquePipelineLayout pPipelineLayout; {
+        std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
+        std::transform(layouts.begin(), layouts.end(), std::back_inserter(descriptorSetLayouts),[](auto const& x) -> decltype(auto) { return *x; });
+
+        vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
+            .setLayoutCount = static_cast<uint32_t>(std::size(descriptorSetLayouts)),
+            .pSetLayouts = std::data(descriptorSetLayouts)
+        };
+        
+        pPipelineLayout = pHALDevice->GetVkDevice().createPipelineLayoutUnique(pipelineLayoutCI);
+    }
+    
 
    //
    // vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
@@ -851,8 +1169,13 @@ int main(int argc, char* argv[]) {
                     .LayerCount = 1            
                 }         
             };
-
-            pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});       
+        
+            
+            pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});  
+            
+           
+            
+     
             ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());                   
             pHALCommandList->EndRenderPass();
 
@@ -886,6 +1209,13 @@ int main(int argc, char* argv[]) {
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
     ImGui::DestroyContext();
+
+  
+ 
+
+
+
+
 
 }
 

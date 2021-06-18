@@ -13,7 +13,7 @@ namespace HAL {
         Hull,
         Domain,
         Geometry,
-        Pixel,
+        Fragment,
         Compute     
     };
 

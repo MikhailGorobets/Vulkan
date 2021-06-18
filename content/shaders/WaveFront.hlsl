@@ -1,26 +1,19 @@
-cbuffer ConstantBuffer: register(b0) {
-    float4x4 MatrixModel;
-    float4x4 MatrixView;
-    float4x4 MatrixProjection;
-};
+
+[[vk::binding(1, 4)]] StructuredBuffer<float4> VetrexBuffer;
+
 
 void VSMain(uint vertexID : SV_VertexID, out float4 position: SV_Position, [[vk::location(0)]] out float2 texcoord: TEXCOORD0) {
     texcoord = float2((vertexID << 1) & 2, vertexID & 2);
-    position = float4(texcoord * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), 0.0f, 1.0f); 
+    position = VetrexBuffer[vertexID];
 }
 
 
+[[vk::binding(0)]] RWTexture2D<float4> SampleTest0;
+[[vk::binding(1)]] RWTexture2D<float4> SampleTest1[2];
+[[vk::binding(2)]] RWTexture2D<float4> SampleTest2[];
 
-float16_t4 PSMain([[vk::location(0)]] float2 texcoord : TEXCOORD0) : SV_Target {
-    
-    uint16_t lineCount = uint16_t(WaveGetLaneCount());
-    uint16_t lineIndex = uint16_t(WaveGetLaneIndex());
-   
-    float32_t sum = 0.0h;  
-    for (uint16_t index = 0; index < 512; index++) {
-        sum += 1.0 / lineCount;
-    }
-  
-    return float16_t4(sum, sum, sum, 1.0h);
+
+float4 PSMain([[vk::location(0)]] float2 texcoord : TEXCOORD0) : SV_Target {
+    return VetrexBuffer[0] + SampleTest0[uint2(0, 0)] + SampleTest1[0][uint2(0, 0)] + SampleTest2[0][uint2(0, 0)];
 }
 
