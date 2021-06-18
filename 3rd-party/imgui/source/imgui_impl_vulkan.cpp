@@ -377,7 +377,7 @@ private:
 
         vk::Queue queue = device.getQueue(indexQueueFamily, 0);
         vk::CommandBuffer cmdBuffers[] = { pCmdBuffer.get() };
-
+       
         vk::SubmitInfo submitDesc = {
             .commandBufferCount = _countof(cmdBuffers),
             .pCommandBuffers = cmdBuffers
@@ -386,7 +386,7 @@ private:
         queue.submit({ submitDesc }, *pFence);
         std::ignore = device.waitForFences({ *pFence }, true, std::numeric_limits<uint64_t>::max());
     }
-
+    
     auto CreateFontSampler(vk::Device device) -> void {
         vk::SamplerCreateInfo samplerCreateInfo = {
             .magFilter = vk::Filter::eLinear,

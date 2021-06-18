@@ -523,14 +523,32 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }    
 
-    
-    class ComputePipeline {
+    class PiplineCache {
+    public:
+        PiplineCache(HAL::Device const& device) {
+
+        }
+
         
+
+    private:
+        
+        vk::UniquePipelineCache m_pPipelineCache;
+
+    };    
+
+
+    class ComputePipeline {
+    public:
+        ComputePipeline(HAL::Device const& device);
     };
 
-    class PiplineLayout {
-     
+    class GraphicsPipeline {
+    public:
+        GraphicsPipeline(HAL::Device const& device);
     };
+
+   
 
     class DescriptorAllocator;
 
@@ -701,6 +719,7 @@ int main(int argc, char* argv[]) {
         pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
     }
 
+
     std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
             vk::AttachmentDescription{
@@ -709,7 +728,7 @@ int main(int argc, char* argv[]) {
                 .loadOp = vk::AttachmentLoadOp::eClear,
                 .storeOp = vk::AttachmentStoreOp::eStore,
                 .initialLayout = vk::ImageLayout::eUndefined,
-                .finalLayout = vk::ImageLayout::ePresentSrcKHR
+                .finalLayout = vk::ImageLayout::ePresentSrcKHR,
             } 
         };
    
@@ -723,7 +742,7 @@ int main(int argc, char* argv[]) {
                 .colorAttachmentCount = _countof(colorAttachmentReferencePass0),
                 .pColorAttachments = colorAttachmentReferencePass0,
                 .pDepthStencilAttachment = nullptr
-            }        
+            }
         };
    
         vk::RenderPassCreateInfo renderPassCI = {
@@ -734,6 +753,8 @@ int main(int argc, char* argv[]) {
         };
         pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
+
+    
 
     auto pHALCommandList = std::make_unique<HAL::GraphicsCommandList>(*pHALGraphicsCmdAllocator);
     auto pHALFence = std::make_unique<HAL::Fence>(*pHALDevice);
@@ -786,10 +807,10 @@ int main(int argc, char* argv[]) {
 
                 descriptorSets[setID].emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
             }
-        };
+        };  
 
         spirv_cross::ShaderResources resources = compiler.get_shader_resources();
-
+      
         ResolveBindingType(vk::DescriptorType::eUniformBuffer, resources.uniform_buffers);
         ResolveBindingType(vk::DescriptorType::eStorageBuffer, resources.storage_buffers);
         ResolveBindingType(vk::DescriptorType::eSampledImage, resources.sampled_images);
@@ -799,7 +820,7 @@ int main(int argc, char* argv[]) {
         return descriptorSets;
     };
 
-    auto MergeStagesDescriptorSetsLayouts = [] (std::vector<std::unordered_set<ResourceBinding>> layout0, std::vector<std::unordered_set<ResourceBinding>> layout1) -> std::vector<std::unordered_set<ResourceBinding>> {
+    auto MergeStagesDescriptorSetsLayouts = [](std::vector<std::unordered_set<ResourceBinding>> layout0, std::vector<std::unordered_set<ResourceBinding>> layout1) -> std::vector<std::unordered_set<ResourceBinding>> {
         std::vector<std::unordered_set<ResourceBinding>> descriptorSets(std::max(std::size(layout0), std::size(layout1)));   
         auto MergeBindings = [](std::unordered_set<ResourceBinding>& out, std::unordered_set<ResourceBinding> const& iterable) -> void {
             for (auto& binding : iterable) {
@@ -808,7 +829,7 @@ int main(int argc, char* argv[]) {
                 } else {
                     out.insert(binding);
                 }
-            };
+            }
         };
 
         for (size_t setID = 0; setID < std::size(descriptorSets); setID++){
@@ -822,6 +843,7 @@ int main(int argc, char* argv[]) {
     auto x = ResolveDescriptorSetLayoutsForStage(compilerVS);
     auto y = ResolveDescriptorSetLayoutsForStage(compilerPS);
     auto z = MergeStagesDescriptorSetsLayouts(x, y);
+
     
     std::vector<vk::UniqueDescriptorSetLayout> layouts;
     
@@ -865,38 +887,91 @@ int main(int argc, char* argv[]) {
         pPipelineLayout = pHALDevice->GetVkDevice().createPipelineLayoutUnique(pipelineLayoutCI);
     }
     
+    //{
+    //
+    //    vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
+    //        vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = "VSMain" },
+    //        vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = "PSMain" },
+    //    };
+    //
+    //    vk::PipelineViewportStateCreateInfo viewportStateCI = {
+    //        .viewportCount = 1,
+    //        .scissorCount = 1
+    //    };
+    //
+    //    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCI = {
+    //        .topology = vk::PrimitiveTopology::eTriangleList,
+    //        .primitiveRestartEnable = false
+    //    };
+    //
+    //    vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
+    //        .vertexBindingDescriptionCount = 0,
+    //        .vertexAttributeDescriptionCount = 0
+    //    };
+    //
+    //    vk::PipelineColorBlendAttachmentState colorBlendAttachments[] = {
+    //        vk::PipelineColorBlendAttachmentState{
+    //            .blendEnable = false,
+    //            .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+    //        }
+    //    };
+    //
+    //    vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
+    //        .depthTestEnable = true,
+    //        .depthWriteEnable = false,
+    //        .depthCompareOp = vk::CompareOp::eLess,
+    //        .stencilTestEnable = false
+    //    };
+    //
+    //    vk::PipelineMultisampleStateCreateInfo multisampleStateCI = {
+    //        .rasterizationSamples = vk::SampleCountFlagBits::e1
+    //    };
+    //
+    //    vk::PipelineColorBlendStateCreateInfo colorBlendStateCI = {
+    //        .logicOpEnable = false,
+    //        .attachmentCount = _countof(colorBlendAttachments),
+    //        .pAttachments = colorBlendAttachments,
+    //    };
+    //
+    //    vk::PipelineRasterizationStateCreateInfo rasterizationStateCI = {
+    //        .depthClampEnable = false,
+    //        .rasterizerDiscardEnable = false,
+    //        .polygonMode = vk::PolygonMode::eFill,
+    //        .cullMode = vk::CullModeFlagBits::eNone,
+    //        .frontFace = vk::FrontFace::eClockwise,
+    //        .lineWidth = 1.0f
+    //    };
+    //
+    //    vk::DynamicState dynamicStates[] = {
+    //        vk::DynamicState::eScissor,
+    //        vk::DynamicState::eViewport
+    //    };
+    //
+    //    vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
+    //        .dynamicStateCount = _countof(dynamicStates),
+    //        .pDynamicStates = dynamicStates
+    //    };
+    //
+    //
+    //    vk::GraphicsPipelineCreateInfo pipelineCI{
+    //            .stageCount = _countof(shaderStagesCI),
+    //            .pStages = shaderStagesCI,
+    //            .pVertexInputState = &vertexInputStateCI,
+    //            .pInputAssemblyState = &inputAssemblyStateCI,
+    //            .pViewportState = &viewportStateCI,
+    //            .pRasterizationState = &rasterizationStateCI,
+    //            .pMultisampleState = &multisampleStateCI,
+    //            .pDepthStencilState = &depthStencilStateCI,
+    //            .pColorBlendState = &colorBlendStateCI,
+    //            .pDynamicState = &dynamicStateCI,
+    //            .layout = *pPipelineLayout,
+    //            .renderPass = pHALRenderPass->GetVkRenderPass(),
+    //    };
+    //
+    //}
 
-   //
-   // vk::UniqueDescriptorSetLayout pDescriptorSetLayout; {
-   //     vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
-   //         vk::DescriptorSetLayoutBinding {
-   //             .binding = 0,
-   //             .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
-   //             .descriptorCount = 1,
-   //             .stageFlags = vk::ShaderStageFlagBits::eAllGraphics
-   //         }   
-   //     };
-   //
-   //     vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
-   //         .bindingCount = _countof(descriptorSetLayoutBindings),
-   //         .pBindings = descriptorSetLayoutBindings
-   //     };
-   //
-   //     pDescriptorSetLayout = pDevice.createDescriptorSetLayoutUnique(descriptorSetLayoutCI);
-   //     vkx::setDebugName(pDevice, *pDescriptorSetLayout, "");
-   // }
-   //
-   // vk::UniquePipelineLayout pPipelineLayout; {
-   //     vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
-   //         .setLayoutCount = 1,
-   //         .pSetLayouts = pDescriptorSetLayout.getAddressOf(),
-   //         .pushConstantRangeCount = 0
-   //     };
-   //     pPipelineLayout = pDevice.createPipelineLayoutUnique(pipelineLayoutCI);
-   //     vkx::setDebugName(pDevice, *pPipelineLayout, "");  
-   // }
-   //
-   // 
+  
+
    // std::unique_ptr<HAL::GraphicsPipeline> pPipeline; {
    //   
    //     auto const spirvVS = *compiler.CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
@@ -1161,7 +1236,7 @@ int main(int argc, char* argv[]) {
         {
             HAL::RenderPassAttachmentInfo renderPassAttachments[] = {
                 HAL::RenderPassAttachmentInfo {
-                    .ImageView =  pHALSwapChain->GetImageView(frameID),
+                    .ImageView = pHALSwapChain->GetImageView(frameID),
                     .ImageUsage = vk::ImageUsageFlagBits::eColorAttachment,
                     .ClearValue = vk::ClearValue{ vk::ClearColorValue{ std::array<float, 4> {0.5f, 0.5f, 0.5f, 1.0f } }},
                     .Width = static_cast<uint32_t>(width),

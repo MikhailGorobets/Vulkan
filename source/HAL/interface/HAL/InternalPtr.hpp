@@ -87,7 +87,7 @@ namespace HAL {
     constexpr size_t InternalSize_RenderPass = 144;
     constexpr size_t InternalSize_ShaderCompiler = 56;
 #else
-    constexpr size_t InternalSize_Adapter   = 2480;
+    constexpr size_t InternalSize_Adapter   = 2616;
     constexpr size_t InternalSize_Instance  = 104; 
     constexpr size_t InternalSize_Device    = 176;
     constexpr size_t InternalSize_SwapChain = 320;
