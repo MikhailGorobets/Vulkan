@@ -47,7 +47,7 @@ namespace HAL {
                 for(size_t index = 0; index < std::size(key.FramebufferAttachment); index++) {
                     std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].usage));
                     std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].pViewFormats[0]));
-                    std::hash_combine(hash, key.FramebufferAttachment[index].width);
+                    std::hash_combine(hash, key.FramebufferAttachment[index].width);        
                     std::hash_combine(hash, key.FramebufferAttachment[index].height);
                     std::hash_combine(hash, key.FramebufferAttachment[index].layerCount);         
                 }

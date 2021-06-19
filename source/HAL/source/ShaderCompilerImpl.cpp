@@ -32,7 +32,7 @@ namespace HAL {
                 case ShaderStage::Geometry: return L"gs";
                 case ShaderStage::Hull:     return L"hs";
                 case ShaderStage::Domain:   return L"ds";
-                case ShaderStage::Fragment:    return L"ps";
+                case ShaderStage::Fragment: return L"ps";
                 case ShaderStage::Compute:  return L"cs";
                 default: return std::nullopt;
             }

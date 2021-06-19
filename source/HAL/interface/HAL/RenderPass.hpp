@@ -13,7 +13,6 @@ namespace HAL {
         uint32_t            LayerCount = {};
     };
 
-
     class RenderPass: NonCopyable {
     public:
         class Internal;

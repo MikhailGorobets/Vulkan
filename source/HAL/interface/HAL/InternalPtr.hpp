@@ -20,7 +20,7 @@ namespace HAL {
 }
 
 namespace HAL {
-    template<typename T> using ArrayProxy = std::initializer_list<std::reference_wrapper<T>>; 
+    template<typename T> using ArrayProxy = std::initializer_list<std::reference_wrapper<const T>>; 
 }
 
 namespace HAL {

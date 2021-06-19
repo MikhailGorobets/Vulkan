@@ -215,10 +215,285 @@ class MemoryStatisticCPU {
 //}
 //
 
-
-       
+     
 namespace HAL {
+
+    struct PipelineResource {
+        uint32_t             SetID;
+        uint32_t             BindingID;
+        uint32_t             DescriptorCount;
+        vk::DescriptorType   DescriptorType;
+        vk::ShaderStageFlags Stages;
+    };
+
+    struct PipelineResourceHash {
+        std::size_t operator()(HAL::PipelineResource const& key) const noexcept {
+            std::size_t h1 = std::hash<uint32_t>{}(key.SetID);
+            std::size_t h2 = std::hash<uint32_t>{}(key.BindingID);
+            return h1 ^ (h2 << 1);
+        }
+    };
     
+    struct PipelineResourceEqual {
+        bool operator()(PipelineResource const& lhs, PipelineResource const& rhs)  const noexcept {
+            return lhs.SetID == rhs.SetID && lhs.BindingID == rhs.BindingID && lhs.DescriptorCount == rhs.DescriptorCount && lhs.DescriptorType == rhs.DescriptorType;
+        }
+    };
+
+    class ShaderModule {
+    public:
+        using SetPipelineResources = std::unordered_set<PipelineResource, PipelineResourceHash, PipelineResourceEqual>;
+    public:
+        ShaderModule(vk::Device device, std::vector<uint32_t> const& spirv) {
+            spirv_cross::CompilerHLSL compiler(spirv);
+            m_EntryPoint = compiler.get_entry_points_and_stages()[0].name;
+            m_ShaderStage = *GetShaderStage(compiler.get_execution_model());
+            m_DescriptorsSets = this->ReflectPipelineResources(compiler);
+            m_pShaderModule = device.createShaderModuleUnique({ .codeSize = sizeof(uint32_t) * std::size(spirv), .pCode = std::data(spirv) });
+        }
+
+        auto GetShaderStage() const -> vk::ShaderStageFlagBits { return m_ShaderStage;  }
+        
+        auto GetShadeModule() const -> vk::ShaderModule { return m_pShaderModule.get(); }
+
+        auto GetEntryPoint() const -> std::string const& { return m_EntryPoint; }
+
+        auto GetResources() const -> SetPipelineResources const& { return m_DescriptorsSets; }
+        
+    private:
+        auto GetShaderStage(spv::ExecutionModel executionModel) const ->std::optional<vk::ShaderStageFlagBits> {
+            switch (executionModel) {
+                case spv::ExecutionModelVertex:
+                    return vk::ShaderStageFlagBits::eVertex;
+                case spv::ExecutionModelTessellationControl:
+                    return vk::ShaderStageFlagBits::eTessellationControl;
+                case spv::ExecutionModelTessellationEvaluation:
+                    return vk::ShaderStageFlagBits::eTessellationEvaluation;
+                case spv::ExecutionModelGeometry:
+                    return vk::ShaderStageFlagBits::eGeometry;
+                case spv::ExecutionModelFragment:
+                    return vk::ShaderStageFlagBits::eFragment;
+                case spv::ExecutionModelGLCompute:
+                    return vk::ShaderStageFlagBits::eCompute;
+            }
+            return {};
+        }
+ 
+        auto ReflectPipelineResources(spirv_cross::CompilerHLSL const& compiler) -> SetPipelineResources {
+            SetPipelineResources pipelineResources(32);
+
+            auto ReflectPipelineResourcesForType = [&](vk::DescriptorType type, spirv_cross::SmallVector<spirv_cross::Resource> const& resources) -> void {
+                for (auto const& resource : resources) {
+                    auto const& typeID = compiler.get_type(resource.type_id);
+
+                    uint32_t setID = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
+                    uint32_t index = compiler.get_decoration(resource.id, spv::DecorationBinding);
+                    uint32_t count = typeID.array.empty() ? 1 : typeID.array[0];
+                    pipelineResources.emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
+                }
+            };
+          
+            spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+            ReflectPipelineResourcesForType(vk::DescriptorType::eUniformBuffer, resources.uniform_buffers);
+            ReflectPipelineResourcesForType(vk::DescriptorType::eStorageBuffer, resources.storage_buffers);
+            ReflectPipelineResourcesForType(vk::DescriptorType::eSampledImage, resources.separate_images);
+            ReflectPipelineResourcesForType(vk::DescriptorType::eStorageImage, resources.storage_images);
+            ReflectPipelineResourcesForType(vk::DescriptorType::eSampler, resources.separate_samplers);
+            return pipelineResources;
+        }
+
+    private:
+        vk::UniqueShaderModule  m_pShaderModule;
+        SetPipelineResources    m_DescriptorsSets;
+        vk::ShaderStageFlagBits m_ShaderStage;
+        std::string             m_EntryPoint;
+        
+        
+    };
+
+    class Pipleline {
+    public:
+        Pipleline(HAL::Device const& device, HAL::ArrayProxy<ShaderModule> shaderModules) {
+            ShaderModule::SetPipelineResources mergedPipelineResources;
+            for (auto const& shaderModule : shaderModules)
+                mergedPipelineResources = this->MergePipelineResources(mergedPipelineResources, shaderModule.get().GetResources());
+
+            m_pPipelineResources = CreateSetBindings(mergedPipelineResources);
+            m_DescriptorSetLaytouts = CreateDescriptorSetLayouts(device, m_pPipelineResources);
+            m_pPipelineLayout = CreatePipelineLayout(device, m_DescriptorSetLaytouts);
+        }
+    
+        auto GetLayout() const -> vk::PipelineLayout { return *m_pPipelineLayout; }
+
+        auto GetBindPoint() const -> vk::PipelineBindPoint;
+
+        
+
+    private:
+        auto MergePipelineResources(ShaderModule::SetPipelineResources const& resources0, ShaderModule::SetPipelineResources const& resources1) -> ShaderModule::SetPipelineResources {
+            ShaderModule::SetPipelineResources result(64);
+            auto SubMergeResources = [](ShaderModule::SetPipelineResources const& iterable, ShaderModule::SetPipelineResources& out) -> void {
+                for (auto& binding : iterable) {
+                    if (auto value = out.find(binding); value != std::end(out)) {
+                        *(vk::ShaderStageFlags*)(&value->Stages) |= binding.Stages;
+                    } else {
+                        out.insert(binding);
+                    }
+                }
+            };
+            SubMergeResources(resources0, result);
+            SubMergeResources(resources1, result);
+            return result;
+        }
+
+        auto CreateSetBindings(ShaderModule::SetPipelineResources resources) -> std::vector<std::vector<PipelineResource>> {
+            std::vector<std::vector<PipelineResource>> pipelineResources;
+            for (auto const& resource : resources) {
+                if (pipelineResources.size() <= resource.SetID)
+                    pipelineResources.resize(resource.SetID + 1ull);
+                pipelineResources[resource.SetID].emplace_back(resource.SetID, resource.BindingID, resource.DescriptorCount, resource.DescriptorType, resource.Stages);
+            }
+            return pipelineResources;
+        }
+
+        auto CreateDescriptorSetLayouts(HAL::Device const& device, std::vector<std::vector<PipelineResource>> const& pipelineResources) -> std::vector<vk::UniqueDescriptorSetLayout> {
+            std::vector<vk::UniqueDescriptorSetLayout> setLayouts;
+
+            for (auto const& bindings : pipelineResources) {
+                std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+                std::vector<vk::DescriptorBindingFlags> descriptorBindingFlags;
+
+                for (auto const& binding : bindings) {
+                    descriptorSetLayoutBindings.emplace_back(binding.BindingID, binding.DescriptorType, binding.DescriptorCount, binding.Stages);
+                    descriptorBindingFlags.push_back(binding.DescriptorCount > 0 ? vk::DescriptorBindingFlags{} : vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound);
+                }
+        
+                if (std::size(descriptorSetLayoutBindings) > 0) {
+
+                    vk::DescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCI = {
+                        .bindingCount = static_cast<uint32_t>(std::size(descriptorBindingFlags)),
+                        .pBindingFlags = std::data(descriptorBindingFlags)
+                    };
+
+                    vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
+                       .pNext = &descriptorSetLayoutBindingFlagsCI,
+                       .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size()),
+                       .pBindings = descriptorSetLayoutBindings.data()
+                    };                   
+                    setLayouts.push_back(device.GetVkDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCI));
+                }    
+            }
+            return setLayouts;
+        }
+
+        auto CreatePipelineLayout(HAL::Device const& device, std::vector<vk::UniqueDescriptorSetLayout> const& descriptorSetLayouts) -> vk::UniquePipelineLayout {
+            auto rawDescriptorSetLayouts = vk::uniqueToRaw(descriptorSetLayouts);  
+            vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
+                .setLayoutCount = static_cast<uint32_t>(std::size(rawDescriptorSetLayouts)),
+                .pSetLayouts = std::data(rawDescriptorSetLayouts)
+            };
+            return device.GetVkDevice().createPipelineLayoutUnique(pipelineLayoutCI);
+        }
+
+    private:
+        vk::UniquePipelineLayout                   m_pPipelineLayout;
+        std::vector<vk::UniqueDescriptorSetLayout> m_DescriptorSetLaytouts;
+        std::vector<std::vector<PipelineResource>> m_pPipelineResources;
+    };
+
+    struct ComputeState {
+
+    };
+
+   
+    struct RenderState {
+
+    };
+
+
+    class ComputePipeline : public Pipleline {
+    public:
+        ComputePipeline(HAL::Device const& device, ShaderModule const& shaderModule) : Pipleline(device, { shaderModule }), m_ComputeShaderModule(shaderModule){
+
+        }
+
+        auto GetShadeModule() const -> ShaderModule const& {  return m_ComputeShaderModule.get();}
+    private:
+        std::reference_wrapper<const ShaderModule> m_ComputeShaderModule;
+    };
+
+    class GraphicsPipeline {
+    public:
+        GraphicsPipeline(HAL::Device const& device, HAL::ArrayProxy<ShaderModule> shaderModules) {
+
+        }
+    };
+
+    class PipelineCache {
+    private:
+        struct GraphicsPipelineKey {
+
+        };
+
+        struct ComputePipelineKey {
+            vk::ShaderModule Stage;
+            bool operator==(const ComputePipelineKey&) const = default;
+        };
+
+        struct GraphicsPipelineKeyHash {
+            std::size_t operator()(GraphicsPipelineKey const& key) const noexcept {
+                return 0;   
+            }
+        };
+
+        struct ComputePipelineKeyyHash {
+            std::size_t operator()(ComputePipelineKey const& key) const noexcept {
+                return 0;
+            }
+        };
+   
+        template<typename Key, typename Hash>
+        using PipelinesCache = std::unordered_map<Key, vk::UniquePipeline, Hash>;
+
+    public:
+
+        PipelineCache(Device const& device) : m_Device(device) {
+ 
+        }
+    
+        auto CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline {
+            vk::ComputePipelineCreateInfo pipelineCI = {
+                .stage = vk::PipelineShaderStageCreateInfo {                    
+                    .stage = pipeline.GetShadeModule().GetShaderStage(),
+                    .module = pipeline.GetShadeModule().GetShadeModule(),
+                    .pName = pipeline.GetShadeModule().GetEntryPoint().c_str()
+                },              
+                .layout = pipeline.GetLayout()      
+            };
+           auto [result, vkPipelines] = m_Device.get().GetVkDevice().createComputePipelinesUnique(m_Device.get().GetVkPipelineCache(), { pipelineCI });
+           return std::move(vkPipelines.front());           
+        }
+        
+        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, RenderState const& state) -> vk::UniquePipeline;
+
+        auto GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) -> vk::Pipeline {         
+            ComputePipelineKey key = { .Stage = pipeline.GetShadeModule().GetShadeModule() };                          
+            auto it = m_ComputePipelineCache.find(key);
+            if (it != m_ComputePipelineCache.end()) 
+                return it->second.get();
+   
+            auto vkPipelineX = CreateComputePipeline(pipeline, state);
+            auto vkPipelineY = vkPipelineX.get();
+            m_ComputePipelineCache.emplace(key, std::move(vkPipelineX));           
+            return vkPipelineY;
+        }
+
+    private:
+        std::reference_wrapper<const Device> m_Device;
+        PipelinesCache<GraphicsPipelineKey, GraphicsPipelineKeyHash> m_GraphicsPipelineCache;
+        PipelinesCache<ComputePipelineKey, ComputePipelineKeyyHash>  m_ComputePipelineCache;
+    };
+
 
     struct AllocatorCreateInfo {    
         vma::AllocatorCreateFlags  Flags = {};  
@@ -470,27 +745,7 @@ namespace HAL {
 //    };
 //}
 
-struct ResourceBinding {
-    uint32_t             SetID;
-    uint32_t             BindingID;
-    uint32_t             DescriptorCount;
-    vk::DescriptorType   DescriptorType;
-    vk::ShaderStageFlags Stages; 
-};
 
-bool operator==(ResourceBinding const& lhs, ResourceBinding const& rhs) {
-    return lhs.SetID == rhs.SetID && lhs.BindingID == rhs.BindingID && lhs.DescriptorCount == rhs.DescriptorCount && lhs.DescriptorType == rhs.DescriptorType;
-}
-
-namespace std {
-    template<> struct hash<ResourceBinding> {
-        std::size_t operator()(ResourceBinding const& s) const noexcept {
-            std::size_t h1 = std::hash<uint32_t>{}(s.SetID);
-            std::size_t h2 = std::hash<uint32_t>{}(s.BindingID);
-            return h1 ^ (h2 << 1);
-        }
-    };
-}
 
 
 int main(int argc, char* argv[]) {
@@ -523,32 +778,8 @@ int main(int argc, char* argv[]) {
         pHALDevice = std::make_unique<HAL::Device>(*pHALInstance, pHALInstance->GetAdapters().at(0), deviceCI);
     }    
 
-    class PiplineCache {
-    public:
-        PiplineCache(HAL::Device const& device) {
-
-        }
-
-        
-
-    private:
-        
-        vk::UniquePipelineCache m_pPipelineCache;
-
-    };    
 
 
-    class ComputePipeline {
-    public:
-        ComputePipeline(HAL::Device const& device);
-    };
-
-    class GraphicsPipeline {
-    public:
-        GraphicsPipeline(HAL::Device const& device);
-    };
-
-   
 
     class DescriptorAllocator;
 
@@ -762,131 +993,32 @@ int main(int argc, char* argv[]) {
     std::unique_ptr<HAL::ShaderCompiler> pHALCompiler; {
         HAL::ShaderCompilerCreateInfo shaderCompilerCI = {
             .ShaderModelVersion = HAL::ShaderModel::SM_6_5, 
-            .IsDebugMode = true 
+            .IsDebugMode = false 
         };
         pHALCompiler = std::make_unique< HAL::ShaderCompiler>(shaderCompilerCI);
     }
 
-    auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
-    auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment,  {});
+    {
+        //auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
+        //auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment, {});
+        auto spirvCS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"CSMain", HAL::ShaderStage::Compute, {});
+
+      //  HAL::ShaderModule shaderModuleVS(pHALDevice->GetVkDevice(), spirvVS.value());
+      //  HAL::ShaderModule shaderModulePS(pHALDevice->GetVkDevice(), spirvPS.value());
+        HAL::ShaderModule shaderModuleCS(pHALDevice->GetVkDevice(), spirvCS.value());
+        
+        HAL::PipelineCache pipelineCache(*pHALDevice);
+        HAL::ComputePipeline testPipeline(*pHALDevice, shaderModuleCS);   
+
+
+        pipelineCache.GetComputePipeline(testPipeline, {});
   
-    spirv_cross::CompilerHLSL compilerVS(spirvVS.value());
-    spirv_cross::CompilerHLSL compilerPS(spirvPS.value());
 
-    auto ResolveDescriptorSetLayoutsForStage = [](spirv_cross::CompilerHLSL const& compiler) ->  std::vector<std::unordered_set<ResourceBinding>> {       
-        std::vector<std::unordered_set<ResourceBinding>> descriptorSets;
-
-        auto GetShaderStage = [](spv::ExecutionModel executionModel) ->  std::optional<vk::ShaderStageFlags> {
-            switch (executionModel) {
-                case spv::ExecutionModelVertex:
-                    return vk::ShaderStageFlagBits::eVertex;
-                case spv::ExecutionModelTessellationControl:
-                    return vk::ShaderStageFlagBits::eTessellationControl;
-                case spv::ExecutionModelTessellationEvaluation:
-                    return vk::ShaderStageFlagBits::eTessellationEvaluation;
-                case spv::ExecutionModelGeometry:
-                    return vk::ShaderStageFlagBits::eGeometry;
-                case spv::ExecutionModelFragment:
-                    return vk::ShaderStageFlagBits::eFragment;
-                case spv::ExecutionModelGLCompute:
-                    return vk::ShaderStageFlagBits::eCompute;
-            }
-            return {};
-        };    
-
-        auto ResolveBindingType = [&](vk::DescriptorType type, spirv_cross::SmallVector<spirv_cross::Resource> const& resources) -> void {
-            for (auto const& resource : resources) {
-                auto const& typeID = compiler.get_type(resource.type_id);
-
-                uint32_t setID = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
-                uint32_t index = compiler.get_decoration(resource.id, spv::DecorationBinding);
-                uint32_t count = typeID.array.empty() ? 1 : typeID.array[0];
-
-                if (setID >= descriptorSets.size())
-                    descriptorSets.resize(setID + 1ull);
-
-                descriptorSets[setID].emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
-            }
-        };  
-
-        spirv_cross::ShaderResources resources = compiler.get_shader_resources();
-      
-        ResolveBindingType(vk::DescriptorType::eUniformBuffer, resources.uniform_buffers);
-        ResolveBindingType(vk::DescriptorType::eStorageBuffer, resources.storage_buffers);
-        ResolveBindingType(vk::DescriptorType::eSampledImage, resources.sampled_images);
-        ResolveBindingType(vk::DescriptorType::eStorageImage, resources.storage_images);
-        ResolveBindingType(vk::DescriptorType::eSampler, resources.uniform_buffers);
-
-        return descriptorSets;
-    };
-
-    auto MergeStagesDescriptorSetsLayouts = [](std::vector<std::unordered_set<ResourceBinding>> layout0, std::vector<std::unordered_set<ResourceBinding>> layout1) -> std::vector<std::unordered_set<ResourceBinding>> {
-        std::vector<std::unordered_set<ResourceBinding>> descriptorSets(std::max(std::size(layout0), std::size(layout1)));   
-        auto MergeBindings = [](std::unordered_set<ResourceBinding>& out, std::unordered_set<ResourceBinding> const& iterable) -> void {
-            for (auto& binding : iterable) {
-                if (auto value = out.find(binding); value != std::end(out)) {
-                   *(vk::ShaderStageFlags*)(&value->Stages) |= binding.Stages;
-                } else {
-                    out.insert(binding);
-                }
-            }
-        };
-
-        for (size_t setID = 0; setID < std::size(descriptorSets); setID++){
-            auto& bindings = descriptorSets[setID];
-            MergeBindings(bindings, layout0[setID]);
-            MergeBindings(bindings, layout1[setID]);
-        }     
-        return descriptorSets;
-    };
-
-    auto x = ResolveDescriptorSetLayoutsForStage(compilerVS);
-    auto y = ResolveDescriptorSetLayoutsForStage(compilerPS);
-    auto z = MergeStagesDescriptorSetsLayouts(x, y);
-
-    
-    std::vector<vk::UniqueDescriptorSetLayout> layouts;
-    
-    for(auto const& bindings: z) {
-        std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-        std::vector<vk::DescriptorBindingFlags> descriptorBindingFlags;
-        for (auto const& binding: bindings) {               
-            descriptorSetLayoutBindings.push_back(vk::DescriptorSetLayoutBinding {
-                .binding = binding.BindingID,
-                .descriptorType = binding.DescriptorType,
-                .descriptorCount = binding.DescriptorCount,
-                .stageFlags = binding.Stages
-            });
-
-            descriptorBindingFlags.push_back(binding.DescriptorCount > 0 ? vk::DescriptorBindingFlags{} : vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound);          
-        }
-        
-        vk::DescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCI = {
-             .bindingCount =  static_cast<uint32_t>(std::size(descriptorBindingFlags)),
-             .pBindingFlags = std::data(descriptorBindingFlags)
-        };
-
-        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
-           .pNext = &descriptorSetLayoutBindingFlagsCI,
-           .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size()),
-           .pBindings = descriptorSetLayoutBindings.data()
-        };
-        
-        layouts.push_back(pHALDevice->GetVkDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCI));
+            
     }
 
-    vk::UniquePipelineLayout pPipelineLayout; {
-        std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
-        std::transform(layouts.begin(), layouts.end(), std::back_inserter(descriptorSetLayouts),[](auto const& x) -> decltype(auto) { return *x; });
+  
 
-        vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
-            .setLayoutCount = static_cast<uint32_t>(std::size(descriptorSetLayouts)),
-            .pSetLayouts = std::data(descriptorSetLayouts)
-        };
-        
-        pPipelineLayout = pHALDevice->GetVkDevice().createPipelineLayoutUnique(pipelineLayoutCI);
-    }
-    
     //{
     //
     //    vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
@@ -985,15 +1117,8 @@ int main(int argc, char* argv[]) {
    //     pPipeline = std::make_unique<HAL::GraphicsPipeline>(pHALDevice, pHALRenderPass, pipelineCI);
    // }
    //
-   // std::vector<std::unique_ptr<HAL::GraphicsCommandAllocator>> commandAllocators;
-   // for (size_t index = 0; index < BUFFER_COUNT; index++) 
-   //     commandAllocators.emplace_back(std::make_unique<HAL::GraphicsCommandAllocator>(*pDevice));
-   //
-   //
-   // std::vector<std::unique_ptr<HAL::GraphicsCommandList>> commandLists;
-   // for (size_t index = 0; index < BUFFER_COUNT; index++) 
-   //     commandLists.emplace_back(std::make_unique<HAL::GraphicsCommandList>(*commandAllocators[index]));
-   // 
+
+
    //
    // std::vector<vk::UniqueDescriptorPool> descriptorPools;
    // for (size_t index = 0; index < BUFFER_COUNT; index++) {
@@ -1248,9 +1373,7 @@ int main(int argc, char* argv[]) {
             
             pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});  
             
-           
-            
-     
+
             ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());                   
             pHALCommandList->EndRenderPass();
 
