@@ -2,11 +2,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (MSVC)
-    add_compile_options("/MP")
-    add_definitions(-DUNICODE -D_UNICODE)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-endif()
+add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
 
 if(WIN32)
    set(PLATFORM_WIN32 TRUE CACHE INTERNAL "Target platform: Win32")

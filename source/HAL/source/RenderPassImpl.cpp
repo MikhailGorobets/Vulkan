@@ -44,28 +44,34 @@ namespace HAL {
         
         FrameBufferCacheKey key = { std::move(frameBufferAttanchments), width, height, layerCount };           
         
-        if (m_FrameBufferCache.find(key) == m_FrameBufferCache.end()){
+        vk::Framebuffer frameBuffer = {};
+
+        if (auto iter = m_FrameBufferCache.find(key); iter == m_FrameBufferCache.end()){
              vk::StructureChain<vk::FramebufferCreateInfo, vk::FramebufferAttachmentsCreateInfo> framebufferCI = {
                  vk::FramebufferCreateInfo { 
                      .flags = vk::FramebufferCreateFlagBits::eImageless,
                      .renderPass = *m_pRenderPass,
-                     .attachmentCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
+                     .attachmentCount = static_cast<uint32_t>(std::size(key.Attachments)),
                      .width  = width,
                      .height = height,
                      .layers = layerCount
                  },
                  vk::FramebufferAttachmentsCreateInfo{ 
-                     .attachmentImageInfoCount = static_cast<uint32_t>(std::size(key.FramebufferAttachment)),
-                     .pAttachmentImageInfos = std::data(key.FramebufferAttachment)
+                     .attachmentImageInfoCount = static_cast<uint32_t>(std::size(key.Attachments)),
+                     .pAttachmentImageInfos = std::data(key.Attachments)
                  }
-             };                              
-             m_FrameBufferCache.emplace(key, m_pRenderPass.getOwner().createFramebufferUnique(framebufferCI.get<vk::FramebufferCreateInfo>()));        
+             };       
+             auto pFrameBuffer = m_pRenderPass.getOwner().createFramebufferUnique(framebufferCI.get<vk::FramebufferCreateInfo>());
+             frameBuffer = pFrameBuffer.get();
+             m_FrameBufferCache.emplace(key, std::move(pFrameBuffer));
+        } else {
+            frameBuffer = iter->second.get();
         }
         
         vk::StructureChain<vk::RenderPassBeginInfo, vk::RenderPassAttachmentBeginInfo> renderPassBeginInfo = {
             vk::RenderPassBeginInfo { 
                 .renderPass  = *m_pRenderPass, 
-                .framebuffer = *m_FrameBufferCache[key], 
+                .framebuffer = frameBuffer,
                 .renderArea = vk::Rect2D { .offset = { .x = 0, .y = 0 }, .extent = {  .width = width, .height = height } }, 
                 .clearValueCount = static_cast<uint32_t>(std::size(frameBufferClearValues)), 
                 .pClearValues = std::data(frameBufferClearValues)

@@ -11,6 +11,16 @@ namespace HAL {
         uint32_t                        AttachmentCount = {};   
     };
     
+    struct GraphicsState;
+    
+    struct ComputeState;
+
+    class GraphicsPipeline;    
+
+    class ComputePipeline;
+    
+    class DescriptorTable;
+
     class CommandList: NonCopyable {
     public:
         class Internal;
@@ -41,6 +51,12 @@ namespace HAL {
     class ComputeCommandList: public TransferCommandList {
     public:
         ComputeCommandList(ComputeCommandAllocator const& allocator);
+
+        auto SetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> void;
+    
+        auto SetDescriptorTable(uint32_t slot, DescriptorTable const& table) const -> void;
+    
+        auto Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ);
     };
 
     class GraphicsCommandList: public ComputeCommandList {
@@ -50,5 +66,8 @@ namespace HAL {
         auto BeginRenderPass(RenderPassBeginInfo const& beginInfo) -> void;
 
         auto EndRenderPass() -> void;
+        
+        auto SetGraphicsPipeline(GraphicsPipeline const& pipeline, GraphicsState const& state) const -> void;
+        
     };
 }

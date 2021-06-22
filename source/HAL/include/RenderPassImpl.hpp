@@ -15,22 +15,24 @@ namespace HAL {
         auto GetRenderPass() const -> vk::RenderPass { return *m_pRenderPass; }
 
     private:
+        using FramebufferAttachments = std::vector<vk::FramebufferAttachmentImageInfo>;
+
         struct FrameBufferCacheKey {
-            std::vector<vk::FramebufferAttachmentImageInfo> FramebufferAttachment = {};
+            FramebufferAttachments Attachments = {};
             uint32_t Width  = {};
             uint32_t Height = {};
             uint32_t Layers = {};
             
             bool operator==(const FrameBufferCacheKey& rhs) const {
-                if (Width != rhs.Width || Height != rhs.Height || Layers != rhs.Layers || std::size(FramebufferAttachment) != std::size(rhs.FramebufferAttachment))
+                if (Width != rhs.Width || Height != rhs.Height || Layers != rhs.Layers || std::size(Attachments) != std::size(rhs.Attachments))
                     return false;
                 
-                for(size_t index = 0; index < std::size(FramebufferAttachment); index++){
-                    if (FramebufferAttachment[index].usage != rhs.FramebufferAttachment[index].usage ||
-                        FramebufferAttachment[index].pViewFormats[0] != rhs.FramebufferAttachment[index].pViewFormats[0] ||
-                        FramebufferAttachment[index].width != rhs.FramebufferAttachment[index].width ||
-                        FramebufferAttachment[index].height != rhs.FramebufferAttachment[index].height ||
-                        FramebufferAttachment[index].layerCount != rhs.FramebufferAttachment[index].layerCount)
+                for(size_t index = 0; index < std::size(Attachments); index++){
+                    if (Attachments[index].usage != rhs.Attachments[index].usage ||
+                        Attachments[index].pViewFormats[0] != rhs.Attachments[index].pViewFormats[0] ||
+                        Attachments[index].width != rhs.Attachments[index].width ||
+                        Attachments[index].height != rhs.Attachments[index].height ||
+                        Attachments[index].layerCount != rhs.Attachments[index].layerCount)
                         return false;
                 }              
                 return true;
@@ -44,12 +46,12 @@ namespace HAL {
                 std::hash_combine(hash, key.Height);
                 std::hash_combine(hash, key.Layers);
    
-                for(size_t index = 0; index < std::size(key.FramebufferAttachment); index++) {
-                    std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].usage));
-                    std::hash_combine(hash, static_cast<uint32_t>(key.FramebufferAttachment[index].pViewFormats[0]));
-                    std::hash_combine(hash, key.FramebufferAttachment[index].width);        
-                    std::hash_combine(hash, key.FramebufferAttachment[index].height);
-                    std::hash_combine(hash, key.FramebufferAttachment[index].layerCount);         
+                for(size_t index = 0; index < std::size(key.Attachments); index++) {
+                    std::hash_combine(hash, static_cast<uint32_t>(key.Attachments[index].usage));
+                    std::hash_combine(hash, static_cast<uint32_t>(key.Attachments[index].pViewFormats[0]));
+                    std::hash_combine(hash, key.Attachments[index].width);
+                    std::hash_combine(hash, key.Attachments[index].height);
+                    std::hash_combine(hash, key.Attachments[index].layerCount);
                 }
                 return hash;            
             }

@@ -13,19 +13,19 @@ namespace HAL {
          m_ShaderModel = createInfo.ShaderModelVersion;
     }
     
-    auto ShaderCompiler::Internal::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>> {
+    auto ShaderCompiler::Internal::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
          ComPtr<IDxcBlobEncoding> pDxcSource;
          ThrowIfFailed(m_pDxcUtils->CreateBlob(std::data(data), static_cast<uint32_t>(std::size(data)), CP_UTF8, &pDxcSource));
          return CompileShaderBlob(pDxcSource, entryPoint, target, defines);
     }
     
-    auto ShaderCompiler::Internal::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>> {
+    auto ShaderCompiler::Internal::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
          ComPtr<IDxcBlobEncoding> pDxcSource;
          ThrowIfFailed(m_pDxcUtils->LoadFile(path.c_str(), nullptr, &pDxcSource));
          return CompileShaderBlob(pDxcSource, entryPoint, target, defines);
     }
     
-    auto ShaderCompiler::Internal::CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>> {
+    auto ShaderCompiler::Internal::CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
         auto const GetShaderStage = [](ShaderStage target) -> std::optional<std::wstring> {
             switch (target) {
                 case ShaderStage::Vertex:   return L"vs";
@@ -66,16 +66,15 @@ namespace HAL {
         
         ComPtr<IDxcResult> pDxcCompileResult;
         if (auto result = m_pDxcCompiler->Compile(&dxcBuffer, std::data(dxcArguments), static_cast<uint32_t>(std::size(dxcArguments)), m_pDxcIncludeHandler, IID_PPV_ARGS(&pDxcCompileResult)); SUCCEEDED(result)) {
-            ComPtr<IDxcBlob> pDxcShaderCode;
-            ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxcShaderCode), nullptr));
-            
-            //TODO
+
             ComPtr<IDxcBlobUtf8> pDxcErrors;
             ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pDxcErrors), nullptr));
             if (pDxcErrors && pDxcErrors->GetStringLength() > 0)
                 fmt::print("Error: {}\n", static_cast<const char*>(pDxcErrors->GetBufferPointer()));
 
-            return std::vector<uint32_t>(static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()), static_cast<uint32_t*>(pDxcShaderCode->GetBufferPointer()) + pDxcShaderCode->GetBufferSize() / 4);
+            ComPtr<IDxcBlob> pDxcShaderCode;
+            ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&pDxcShaderCode), nullptr));
+            return std::vector<uint8_t>(static_cast<uint8_t*>(pDxcShaderCode->GetBufferPointer()), static_cast<uint8_t*>(pDxcShaderCode->GetBufferPointer()) + pDxcShaderCode->GetBufferSize());
         } else {
             ComPtr<IDxcBlobUtf8> pDxcErrors;
             ThrowIfFailed(pDxcCompileResult->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pDxcErrors), nullptr));
@@ -91,11 +90,11 @@ namespace HAL {
 
     ShaderCompiler::~ShaderCompiler() = default;
 
-    auto ShaderCompiler::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>> {
+    auto ShaderCompiler::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t >> {
         return m_pInternal->CompileFromString(data, entryPoint, target, defines);
     }
 
-    auto ShaderCompiler::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint32_t>> {
+    auto ShaderCompiler::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t >> {
         return m_pInternal->CompileFromFile(path, entryPoint, target, defines);
     }
 

@@ -195,28 +195,48 @@ class MemoryStatisticCPU {
 };
 
 
-
-//namespace vkx {
-//
-//    struct SpirvShaderResourceAttributes {
-//        vk::DescriptorType descriptorType;
-//        uint32_t           descriptorCount;
-//        std::string        descriptorName;
-//    };
-//
-//    struct SpirvShaderStageInputAttributes {
-//
-//    };
-//
-//    struct SpirvShaderResources {
-//
-//    };
-//
-//}
-//
-
-     
+ 
 namespace HAL {
+
+    enum class Format {
+
+    };
+
+    enum class FillMode {
+        Solid,
+        Line,
+        Point
+    };
+
+    enum class CullMode {
+        None,
+        Front,
+        Back,
+    };
+
+    enum class ComparisonFunction {
+        Never,
+        Less,
+        Equal,
+        LessOrEqual,
+        Greater,
+        NotEqual,
+        GreaterOrEqual,
+        Always
+    };
+
+    enum class BlendFactor {
+
+    };
+
+    enum class BlendFunction {
+
+    };
+
+    enum class FrontFace {
+        CounterClockwise,
+        Clockwise
+    };
 
     struct PipelineResource {
         uint32_t             SetID;
@@ -226,59 +246,133 @@ namespace HAL {
         vk::ShaderStageFlags Stages;
     };
 
-    struct PipelineResourceHash {
-        std::size_t operator()(HAL::PipelineResource const& key) const noexcept {
-            std::size_t h1 = std::hash<uint32_t>{}(key.SetID);
-            std::size_t h2 = std::hash<uint32_t>{}(key.BindingID);
-            return h1 ^ (h2 << 1);
-        }
+    struct RasterizationState {
+        FillMode  FillMode;
+        CullMode  CullMode;
+        FrontFace FrontFace;
     };
-    
-    struct PipelineResourceEqual {
-        bool operator()(PipelineResource const& lhs, PipelineResource const& rhs)  const noexcept {
-            return lhs.SetID == rhs.SetID && lhs.BindingID == rhs.BindingID && lhs.DescriptorCount == rhs.DescriptorCount && lhs.DescriptorType == rhs.DescriptorType;
-        }
+
+    struct DepthStencilState {
+        bool               DepthEnable;
+        bool               DepthWrite;
+        ComparisonFunction DepthFunc;
+    };
+
+    struct RenderTargetBlendState {
+        bool          BlendEnable;
+        BlendFactor   ColorSrcBlend;
+        BlendFactor   ColorDstBlend;
+        BlendFunction ColorBlendOp;
+        BlendFactor   AlphaSrcBlend;
+        BlendFactor   AlphaDstBlend;
+        BlendFunction AlphaBlendOp;
+        uint8_t       WriteMask;
+    };
+
+    struct ColorBlendState {
+        RenderTargetBlendState RenderTarget[8];
+    };
+
+    struct ShaderBytecode {
+        uint8_t* pData;
+        uint64_t Size;
+    };
+
+    struct ComputeState {
+
+    };   
+   
+    struct GraphicsState {
+        RasterizationState RasterState;
+        DepthStencilState  DepthStencilState;
+        ColorBlendState    BlendState;
+    };
+
+    struct ComputePipelineCreateInfo {
+        ShaderBytecode CS;
+    };
+
+    struct GraphicsPipelineCreateInfo {
+        ShaderBytecode VS;
+        ShaderBytecode PS;
+        ShaderBytecode DS;
+        ShaderBytecode HS;
+        ShaderBytecode GS;
+    };
+
+    struct BufferCreateInfo {
+
+    };
+
+    struct TextureCreateInfo {
+        uint32_t   Width = 0;
+        uint32_t   Height = 0;
+        uint32_t   Depth = 0;
+        uint32_t   ArraySize = 1;
+        uint32_t   MipLevels = 1;
+        vk::Format Format;
+    };
+
+    struct AllocatorCreateInfo {
+        vma::AllocatorCreateFlags  Flags = {};
+        vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};
+        uint32_t                   FrameInUseCount = {};
     };
 
     class ShaderModule {
     public:
+        struct PipelineResourceHash {
+            std::size_t operator()(HAL::PipelineResource const& key) const noexcept {
+                std::size_t h1 = std::hash<uint32_t>{}(key.SetID);
+                std::size_t h2 = std::hash<uint32_t>{}(key.BindingID);
+                return h1 ^ (h2 << 1);
+            }
+        };
+
+        struct PipelineResourceEqual {
+            bool operator()(PipelineResource const& lhs, PipelineResource const& rhs)  const noexcept {
+                return lhs.SetID == rhs.SetID && lhs.BindingID == rhs.BindingID && lhs.DescriptorCount == rhs.DescriptorCount && lhs.DescriptorType == rhs.DescriptorType;
+            }
+        };
+        
         using SetPipelineResources = std::unordered_set<PipelineResource, PipelineResourceHash, PipelineResourceEqual>;
+
     public:
-        ShaderModule(vk::Device device, std::vector<uint32_t> const& spirv) {
-            spirv_cross::CompilerHLSL compiler(spirv);
+        ShaderModule(vk::Device device, ShaderBytecode const& code) {
+            spirv_cross::CompilerHLSL compiler(reinterpret_cast<const uint32_t*>(code.pData), code.Size / 4);
             m_EntryPoint = compiler.get_entry_points_and_stages()[0].name;
             m_ShaderStage = *GetShaderStage(compiler.get_execution_model());
             m_DescriptorsSets = this->ReflectPipelineResources(compiler);
-            m_pShaderModule = device.createShaderModuleUnique({ .codeSize = sizeof(uint32_t) * std::size(spirv), .pCode = std::data(spirv) });
+            m_pShaderModule = device.createShaderModuleUnique({ .codeSize = static_cast<uint32_t>(code.Size), .pCode = reinterpret_cast<uint32_t*>(code.pData)  });
         }
 
-        auto GetShaderStage() const -> vk::ShaderStageFlagBits { return m_ShaderStage;  }
-        
+        auto GetShaderStage() const -> vk::ShaderStageFlagBits { return m_ShaderStage; }
+
         auto GetShadeModule() const -> vk::ShaderModule { return m_pShaderModule.get(); }
 
         auto GetEntryPoint() const -> std::string const& { return m_EntryPoint; }
 
         auto GetResources() const -> SetPipelineResources const& { return m_DescriptorsSets; }
-        
+
     private:
         auto GetShaderStage(spv::ExecutionModel executionModel) const ->std::optional<vk::ShaderStageFlagBits> {
             switch (executionModel) {
-                case spv::ExecutionModelVertex:
-                    return vk::ShaderStageFlagBits::eVertex;
-                case spv::ExecutionModelTessellationControl:
-                    return vk::ShaderStageFlagBits::eTessellationControl;
-                case spv::ExecutionModelTessellationEvaluation:
-                    return vk::ShaderStageFlagBits::eTessellationEvaluation;
-                case spv::ExecutionModelGeometry:
-                    return vk::ShaderStageFlagBits::eGeometry;
-                case spv::ExecutionModelFragment:
-                    return vk::ShaderStageFlagBits::eFragment;
-                case spv::ExecutionModelGLCompute:
-                    return vk::ShaderStageFlagBits::eCompute;
+            case spv::ExecutionModelVertex:
+                return vk::ShaderStageFlagBits::eVertex;
+            case spv::ExecutionModelTessellationControl:
+                return vk::ShaderStageFlagBits::eTessellationControl;
+            case spv::ExecutionModelTessellationEvaluation:
+                return vk::ShaderStageFlagBits::eTessellationEvaluation;
+            case spv::ExecutionModelGeometry:
+                return vk::ShaderStageFlagBits::eGeometry;
+            case spv::ExecutionModelFragment:
+                return vk::ShaderStageFlagBits::eFragment;
+            case spv::ExecutionModelGLCompute:
+                return vk::ShaderStageFlagBits::eCompute;
             }
             return {};
         }
- 
+
         auto ReflectPipelineResources(spirv_cross::CompilerHLSL const& compiler) -> SetPipelineResources {
             SetPipelineResources pipelineResources(32);
 
@@ -292,8 +386,8 @@ namespace HAL {
                     pipelineResources.emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
                 }
             };
-          
-            spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+            spirv_cross::ShaderResources resources = compiler.get_shader_resources();                      
             ReflectPipelineResourcesForType(vk::DescriptorType::eUniformBuffer, resources.uniform_buffers);
             ReflectPipelineResourcesForType(vk::DescriptorType::eStorageBuffer, resources.storage_buffers);
             ReflectPipelineResourcesForType(vk::DescriptorType::eSampledImage, resources.separate_images);
@@ -307,28 +401,34 @@ namespace HAL {
         SetPipelineResources    m_DescriptorsSets;
         vk::ShaderStageFlagBits m_ShaderStage;
         std::string             m_EntryPoint;
-        
-        
     };
 
-    class Pipleline {
+    class Pipeline {
     public:
-        Pipleline(HAL::Device const& device, HAL::ArrayProxy<ShaderModule> shaderModules) {
+        Pipeline(HAL::Device const& device, HAL::ArrayProxy<ShaderBytecode> byteCodes, vk::PipelineBindPoint bindPoint) {
+            for (auto const& code : byteCodes) 
+                m_ShaderModules.push_back(ShaderModule(device.GetVkDevice(), code));
+
             ShaderModule::SetPipelineResources mergedPipelineResources;
-            for (auto const& shaderModule : shaderModules)
-                mergedPipelineResources = this->MergePipelineResources(mergedPipelineResources, shaderModule.get().GetResources());
+            for (auto const& shaderModule : m_ShaderModules)
+                mergedPipelineResources = this->MergePipelineResources(mergedPipelineResources, shaderModule.GetResources());
 
             m_pPipelineResources = CreateSetBindings(mergedPipelineResources);
             m_DescriptorSetLaytouts = CreateDescriptorSetLayouts(device, m_pPipelineResources);
             m_pPipelineLayout = CreatePipelineLayout(device, m_DescriptorSetLaytouts);
+            m_BindPoint = bindPoint;
         }
-    
+
         auto GetLayout() const -> vk::PipelineLayout { return *m_pPipelineLayout; }
 
-        auto GetBindPoint() const -> vk::PipelineBindPoint;
+        auto GetDescripiptorSetLayout(uint32_t slot) const -> std::optional<vk::DescriptorSetLayout> { 
+            return slot < std::size(m_DescriptorSetLaytouts) ? m_DescriptorSetLaytouts[slot].get() : std::optional<vk::DescriptorSetLayout>{};
+        };
 
-        
+        auto GetBindPoint() const-> vk::PipelineBindPoint { return m_BindPoint; }
 
+        auto GetShaderModule(uint32_t index) const -> ShaderModule const& {  return m_ShaderModules[index]; };
+    
     private:
         auto MergePipelineResources(ShaderModule::SetPipelineResources const& resources0, ShaderModule::SetPipelineResources const& resources1) -> ShaderModule::SetPipelineResources {
             ShaderModule::SetPipelineResources result(64);
@@ -367,7 +467,7 @@ namespace HAL {
                     descriptorSetLayoutBindings.emplace_back(binding.BindingID, binding.DescriptorType, binding.DescriptorCount, binding.Stages);
                     descriptorBindingFlags.push_back(binding.DescriptorCount > 0 ? vk::DescriptorBindingFlags{} : vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound);
                 }
-        
+
                 if (std::size(descriptorSetLayoutBindings) > 0) {
 
                     vk::DescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCI = {
@@ -379,15 +479,15 @@ namespace HAL {
                        .pNext = &descriptorSetLayoutBindingFlagsCI,
                        .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size()),
                        .pBindings = descriptorSetLayoutBindings.data()
-                    };                   
+                    };
                     setLayouts.push_back(device.GetVkDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCI));
-                }    
+                }
             }
             return setLayouts;
         }
 
         auto CreatePipelineLayout(HAL::Device const& device, std::vector<vk::UniqueDescriptorSetLayout> const& descriptorSetLayouts) -> vk::UniquePipelineLayout {
-            auto rawDescriptorSetLayouts = vk::uniqueToRaw(descriptorSetLayouts);  
+            auto rawDescriptorSetLayouts = vk::uniqueToRaw(descriptorSetLayouts);
             vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
                 .setLayoutCount = static_cast<uint32_t>(std::size(rawDescriptorSetLayouts)),
                 .pSetLayouts = std::data(rawDescriptorSetLayouts)
@@ -399,40 +499,43 @@ namespace HAL {
         vk::UniquePipelineLayout                   m_pPipelineLayout;
         std::vector<vk::UniqueDescriptorSetLayout> m_DescriptorSetLaytouts;
         std::vector<std::vector<PipelineResource>> m_pPipelineResources;
+        std::vector<ShaderModule>                  m_ShaderModules;
+        vk::PipelineBindPoint                      m_BindPoint;
     };
 
-    struct ComputeState {
-
-    };
-
-   
-    struct RenderState {
-
-    };
-
-
-    class ComputePipeline : public Pipleline {
+    class ComputePipeline : public Pipeline {
     public:
-        ComputePipeline(HAL::Device const& device, ShaderModule const& shaderModule) : Pipleline(device, { shaderModule }), m_ComputeShaderModule(shaderModule){
+        ComputePipeline(HAL::Device const& device, ComputePipelineCreateInfo const& createInfo) : Pipeline(device, { createInfo.CS }, vk::PipelineBindPoint::eCompute) {
+          
+        }
+    };
+
+    class GraphicsPipeline : public Pipeline {
+    public:
+        GraphicsPipeline(HAL::Device const& device, GraphicsPipelineCreateInfo const& createInfo) : Pipeline(device, { createInfo.VS, createInfo.PS }, vk::PipelineBindPoint::eGraphics) {
 
         }
-
-        auto GetShadeModule() const -> ShaderModule const& {  return m_ComputeShaderModule.get();}
-    private:
-        std::reference_wrapper<const ShaderModule> m_ComputeShaderModule;
-    };
-
-    class GraphicsPipeline {
-    public:
-        GraphicsPipeline(HAL::Device const& device, HAL::ArrayProxy<ShaderModule> shaderModules) {
-
-        }
+        
     };
 
     class PipelineCache {
     private:
-        struct GraphicsPipelineKey {
+        struct GraphicsStateBitField {
+            uint32_t FillMode;
+            uint32_t CullMode;
+            uint32_t FrontFace;
+            uint32_t DepthTestEnable;
+            uint32_t DepthWriteEnable;
+            uint32_t DepthFunc;
+            uint32_t SubpassIndex;
+        };
 
+        struct ColorBlendAttachmentBitField {
+            uint32_t ColorWriteMask;
+        };
+
+        struct GraphicsPipelineKey {
+           
         };
 
         struct ComputePipelineKey {
@@ -456,7 +559,6 @@ namespace HAL {
         using PipelinesCache = std::unordered_map<Key, vk::UniquePipeline, Hash>;
 
     public:
-
         PipelineCache(Device const& device) : m_Device(device) {
  
         }
@@ -464,9 +566,9 @@ namespace HAL {
         auto CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline {
             vk::ComputePipelineCreateInfo pipelineCI = {
                 .stage = vk::PipelineShaderStageCreateInfo {                    
-                    .stage = pipeline.GetShadeModule().GetShaderStage(),
-                    .module = pipeline.GetShadeModule().GetShadeModule(),
-                    .pName = pipeline.GetShadeModule().GetEntryPoint().c_str()
+                    .stage = pipeline.GetShaderModule(0).GetShaderStage(),
+                    .module = pipeline.GetShaderModule(0).GetShadeModule(),
+                    .pName = pipeline.GetShaderModule(0).GetEntryPoint().c_str()
                 },              
                 .layout = pipeline.GetLayout()      
             };
@@ -474,10 +576,87 @@ namespace HAL {
            return std::move(vkPipelines.front());           
         }
         
-        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, RenderState const& state) -> vk::UniquePipeline;
+        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline {
+
+            vk::PipelineViewportStateCreateInfo viewportStateCI = {
+                .viewportCount = 1,
+                .scissorCount = 1
+            };
+
+            vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCI = {
+                .topology = vk::PrimitiveTopology::eTriangleList,
+                .primitiveRestartEnable = false
+            };
+
+            vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
+                .vertexBindingDescriptionCount = 0,
+                .vertexAttributeDescriptionCount = 0
+            };
+
+            vk::PipelineColorBlendAttachmentState colorBlendAttachments[] = {
+                vk::PipelineColorBlendAttachmentState {
+                    .blendEnable = false,
+                    .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+                }
+            };
+            
+            vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
+                .depthTestEnable = state.DepthStencilState.DepthEnable,
+                .depthWriteEnable = state.DepthStencilState.DepthWrite,
+                .depthCompareOp = static_cast<vk::CompareOp>(state.DepthStencilState.DepthFunc),
+                .stencilTestEnable = false
+            };
+
+            vk::PipelineMultisampleStateCreateInfo multisampleStateCI = {
+                .rasterizationSamples = vk::SampleCountFlagBits::e1
+            };
+
+            vk::PipelineColorBlendStateCreateInfo colorBlendStateCI = {
+                .logicOpEnable = false,
+                .attachmentCount = _countof(colorBlendAttachments),
+                .pAttachments = colorBlendAttachments,
+            };
+
+            vk::PipelineRasterizationStateCreateInfo rasterizationStateCI = {
+                .depthClampEnable = false,
+                .rasterizerDiscardEnable = false,
+                .polygonMode = static_cast<vk::PolygonMode>(state.RasterState.FillMode),
+                .cullMode = static_cast<vk::CullModeFlagBits>(state.RasterState.CullMode),
+                .frontFace = static_cast<vk::FrontFace>(state.RasterState.FrontFace),
+                .lineWidth = 1.0f
+            };
+
+            vk::DynamicState dynamicStates[] = {
+                vk::DynamicState::eScissor,
+                vk::DynamicState::eViewport
+            };
+
+            vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
+                .dynamicStateCount = _countof(dynamicStates),
+                .pDynamicStates = dynamicStates
+            };
+            
+
+            vk::GraphicsPipelineCreateInfo pipelineCI = {
+                //.stageCount = _countof(shaderStagesCI),
+               // .pStages = shaderStagesCI,
+                .pVertexInputState = &vertexInputStateCI,
+                .pViewportState = &viewportStateCI,
+                .pRasterizationState = &rasterizationStateCI,
+                .pMultisampleState = &multisampleStateCI,
+                .pDepthStencilState = &depthStencilStateCI,
+                .pColorBlendState = &colorBlendStateCI,
+                .pDynamicState = &dynamicStateCI,
+                .layout = pipeline.GetLayout(),
+                .renderPass = renderPass.GetVkRenderPass(),
+            };
+        
+            auto [result, vkPipelines] = m_Device.get().GetVkDevice().createGraphicsPipelinesUnique(m_Device.get().GetVkPipelineCache(), { pipelineCI });
+            return std::move(vkPipelines.front());
+        }
 
         auto GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) -> vk::Pipeline {         
-            ComputePipelineKey key = { .Stage = pipeline.GetShadeModule().GetShadeModule() };                          
+            ComputePipelineKey key = { .Stage = pipeline.GetShaderModule(0).GetShadeModule() };                          
             auto it = m_ComputePipelineCache.find(key);
             if (it != m_ComputePipelineCache.end()) 
                 return it->second.get();
@@ -488,17 +667,19 @@ namespace HAL {
             return vkPipelineY;
         }
 
+        auto GetGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline;
+
+        auto Reset() -> void;
+
+   
+      
+
     private:
+        
+
         std::reference_wrapper<const Device> m_Device;
         PipelinesCache<GraphicsPipelineKey, GraphicsPipelineKeyHash> m_GraphicsPipelineCache;
         PipelinesCache<ComputePipelineKey, ComputePipelineKeyyHash>  m_ComputePipelineCache;
-    };
-
-
-    struct AllocatorCreateInfo {    
-        vma::AllocatorCreateFlags  Flags = {};  
-        vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};
-        uint32_t                   FrameInUseCount = {};       
     };
    
     class MemoryAllocator {
@@ -563,21 +744,6 @@ namespace HAL {
         uint32_t             m_FrameCount;
     };
  
-    struct BufferCreateInfo {
- 
-    };
- 
-    struct TextureCreateInfo {
-        uint32_t   Width = 0;
-        uint32_t   Height = 0;
-        uint32_t   Depth = 0;
-        uint32_t   ArraySize = 1;
-        uint32_t   MipLevels = 1;
-        vk::Format Format;
-        
-    };    
- 
-
     class BufferView {
     };
 
@@ -608,12 +774,6 @@ namespace HAL {
     class Texture {
     public:
         Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) {
-            vk::ImageCreateInfo imageCI = {
-                
-                .extent = { createInfo.Width, createInfo.Height, createInfo.Depth },
-                .arrayLayers = createInfo.ArraySize,
-                
-            };
         }
         
         auto GetDefaultView() -> void;
@@ -624,126 +784,143 @@ namespace HAL {
     };
  
     class Sampler;
+    
+    class DescriptorAllocator;
 
-//
-//    struct ShaderByteCode {
-//        const char* pName = {};
-//        const void* pData = {};
-//        uint64_t    Size  = {};      
-//    };
-//
-//    struct GraphicsPipelineCreateInfo {
-//        ShaderByteCode VS;
-//        ShaderByteCode PS;
-//    };
-//
-//    struct ComputePipelineCreateInfo {
-//        ShaderByteCode CS;
-//    };
-//
-//    class PipelineLayout {
-//
-//    private:
-//       
-//    };
+    class DescriptorTable {
+    public:
+        auto SetTextureViews(uint32_t slot, HAL::ArrayProxy<HAL::TextureView> const& textures) -> void {
+            vk::DescriptorImageInfo imageInfo = {
 
-   // class GraphicsPipeline {
-   // public:
-   //     GraphicsPipeline(Device const& device, RenderPass const& renderPass, GraphicsPipelineCreateInfo const& createInfo) {
-   //         
-   //         vk::UniqueShaderModule vs = device.GetVkDevice().createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = createInfo.VS.Size, .pCode = reinterpret_cast<const uint32_t*>(createInfo.VS.pData) });
-   //         vk::UniqueShaderModule fs = device.GetVkDevice().createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = createInfo.PS.Size, .pCode = reinterpret_cast<const uint32_t*>(createInfo.PS.pData) });
-   //
-   //         //vkx::setDebugName(device.GetVkDevice(), *vs, "[VS] WaveFront");
-   //         //vkx::setDebugName(device.GetVkDevice(), *fs, "[FS] WaveFront");
-   //       
-   //         vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
-   //             vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = createInfo.VS.pName },
-   //             vk::PipelineShaderStageCreateInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = createInfo.PS.pName },
-   //         };
-   //         
-   //         vk::PipelineViewportStateCreateInfo viewportStateCI = {
-   //             .viewportCount = 1,        
-   //             .scissorCount = 1
-   //         };
-   //
-   //         vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
-   //             .vertexBindingDescriptionCount  = 0,
-   //             .vertexAttributeDescriptionCount = 0
-   //         };
-   //         
-   //         vk::DynamicState dynamicStates[] = {
-   //             vk::DynamicState::eScissor,
-   //             vk::DynamicState::eViewport
-   //         };
-   //
-   //         vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
-   //             .dynamicStateCount = _countof(dynamicStates),
-   //             .pDynamicStates = dynamicStates
-   //         };
-   //
-   //         vk::GraphicsPipelineCreateInfo pipelineCI = {
-   //            .stageCount = _countof(shaderStagesCI),
-   //            .pStages = shaderStagesCI,
-   //            .pVertexInputState = &vertexInputStateCI,
-   //            .pInputAssemblyState = &inputAssemblyStateCI,
-   //            .pViewportState = &viewportStateCI,
-   //            .pRasterizationState = &rasterizationStateCI,
-   //            .pMultisampleState = &multisampleStateCI,
-   //            .pDepthStencilState = &depthStencilStateCI,
-   //            .pColorBlendState = &colorBlendStateCI,
-   //            .pDynamicState = &dynamicStateCI,
-   //            .layout = *pPipelineLayout,
-   //            .renderPass = renderPass.GetVkRenderPass(),
-   //         };
-   //
-   //         std::tie(std::ignore, m_pPipeline) = device.GetVkDevice().createGraphicsPipelineUnique(device.GetVkPipelineCache(), pipelineCI).asTuple();
-   //         //vkx::setDebugName(pDevice, *pPipeline, "WaveFront");      
-   //         //fmt::print("Flags: {} Duration: {}s\n", vk::to_string(creationFeedback.flags), creationFeedback.duration / 1E9f);     
-   // 
-   //     }
-   // private:
-   //     vk::UniquePipeline m_pPipeline;
-   // };
-   //
-   // class ComputePipeline {
-   // public:
-   //     ComputePipeline(ComputePipelineCreateInfo const& createInfo) {
-   //
-   //     }
-   // private:
-   //     vk::UniquePipeline m_pPipeline;
-   // };
-   //
-   // struct RenderPassCreateInfo {
-   // private:
-   //
-   //
-   // };
-   //
-   //
+            };
+        }
+
+        auto SetBufferViews(uint32_t slot, HAL::ArrayProxy<HAL::BufferView> const& buffers) -> void {
+            vk::DescriptorBufferInfo bufferInfo = {
+
+            };
+
+        }
+
+        auto SetSamplers(uint32_t slot, HAL::ArrayProxy<HAL::Sampler> const& samplers) -> void {
+            vk::DescriptorImageInfo samplerInfo = {
+
+            };
+        }
+
+        auto UpdateDescriptors() -> void {
+
+            std::vector<vk::WriteDescriptorSet> descriptortWrites;
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet{
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsUniformBuffer)),
+                .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
+                .pBufferInfo = std::data(m_DescriptorsUniformBuffer)
+                });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet{
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsStorageBuffer)),
+                .descriptorType = vk::DescriptorType::eStorageBuffer,
+                .pBufferInfo = std::data(m_DescriptorsStorageBuffer)
+                });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet{
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageSampled)),
+                .descriptorType = vk::DescriptorType::eSampledImage,
+                .pImageInfo = std::data(m_DescriptorsImageSampled)
+                });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet{
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageStorage)),
+                .descriptorType = vk::DescriptorType::eStorageImage,
+                .pImageInfo = std::data(m_DescriptorsImageStorage)
+                });
+
+            descriptortWrites.push_back(vk::WriteDescriptorSet{
+                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsSampler)),
+                .descriptorType = vk::DescriptorType::eSampler,
+                .pImageInfo = std::data(m_DescriptorsSampler)
+                });
+
+            // m_pDescriptorSet.getOwner().updateDescriptorSets(std::size(descriptortWrites), std::data(descriptortWrites), 0, nullptr);
+        }
+
+    private:
+        std::vector<vk::DescriptorBufferInfo> m_DescriptorsUniformBuffer;
+        std::vector<vk::DescriptorBufferInfo> m_DescriptorsStorageBuffer;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageSampled;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageStorage;
+        std::vector<vk::DescriptorImageInfo>  m_DescriptorsSampler;
+
+        std::reference_wrapper<DescriptorAllocator> m_Allocator;
+        vk::DescriptorSet                           m_pDescriptorSet;
+    };
+
+    struct DescriptorAllocatorCreateInfo {
+        uint32_t UniformBufferCount;
+        uint32_t StorageBufferCount;
+        uint32_t SampledImageCount;
+        uint32_t StorageImageCount;
+        uint32_t SamplerCount;
+        uint32_t MaxSets;
+    };
+
+    class DescriptorAllocator {
+    public:
+        DescriptorAllocator(HAL::Device const& pDevice, DescriptorAllocatorCreateInfo const& createInfo) {
+            vk::DescriptorPoolSize descriptorPoolSizes[] = {
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = createInfo.UniformBufferCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = createInfo.StorageBufferCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampledImage, .descriptorCount = createInfo.SampledImageCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageImage, .descriptorCount = createInfo.StorageImageCount},
+                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampler,.descriptorCount = createInfo.SamplerCount}
+            };
+
+            vk::DescriptorPoolCreateInfo descriptorPoolCI = {
+                .maxSets = createInfo.MaxSets,
+                .poolSizeCount = _countof(descriptorPoolSizes),
+                .pPoolSizes = descriptorPoolSizes
+            };
+            m_pDescriptorPool = pDevice.GetVkDevice().createDescriptorPoolUnique(descriptorPoolCI);
+        }
+
+        auto Allocate(vk::DescriptorSetLayout layout, std::optional<uint32_t> dynamicDescriptorCount = std::nullopt) -> DescriptorTable {
+
+            uint32_t pDescriptorCount[] = { dynamicDescriptorCount.value_or(0) };
+
+            vk::DescriptorSetLayout pDescriptorSetLayouts[] = {
+                layout
+            };
+
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo descriptorSetVariableDescriptorCountAI = {
+                .descriptorSetCount = _countof(pDescriptorCount),
+                .pDescriptorCounts = pDescriptorCount
+            };
+
+            vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo = {
+                .pNext = &descriptorSetVariableDescriptorCountAI,
+                .descriptorPool = m_pDescriptorPool.get(),
+                .descriptorSetCount = _countof(pDescriptorSetLayouts),
+                .pSetLayouts = pDescriptorSetLayouts
+            };
+
+            //  auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
+        }
+
+        auto Reset() -> void {
+            m_pDescriptorPool.getOwner().resetDescriptorPool(m_pDescriptorPool.get());
+        }
+
+        auto GetVkDescriptorPool() -> vk::DescriptorPool {
+            return m_pDescriptorPool.get();
+        }
+
+    private:
+        vk::UniqueDescriptorPool m_pDescriptorPool;
+    };
 
 }
 
-
-
-//bool operator==(const ResourceBinding& lhs, const ResourceBinding& rhs) {
-//    return lhs.Name == rhs.Name &&
-//           lhs.SetID == rhs.SetID &&
-//           lhs.BindingID == rhs.BindingID &&
-//           lhs.DescriptorCount == lhs.DescriptorCount &&
-//           lhs.DescriptorType == lhs.DescriptorType;
-//};
-//
-//namespace std {
-//    template<> struct hash<ResourceBinding> {
-//        std::size_t operator()(ResourceBinding const& value) const noexcept {
-//            std::size_t h1 = std::hash<uint32_t>{}(value.SetID);
-//            std::size_t h2 = std::hash<uint32_t>{}(value.BindingID);
-//            return h1 ^ (h2 << 1); 
-//        }
-//    };
-//}
 
 
 
@@ -780,142 +957,6 @@ int main(int argc, char* argv[]) {
 
 
 
-
-    class DescriptorAllocator;
-
-    class DescriptorTable {
-    public:
-        auto SetTextureViews(uint32_t slot, HAL::ArrayProxy<HAL::TextureView> const& textures) -> void {          
-            vk::DescriptorImageInfo imageInfo = {
-
-            };
-        }
-        
-        auto SetBufferViews(uint32_t slot, HAL::ArrayProxy<HAL::BufferView> const& buffers) -> void {
-            vk::DescriptorBufferInfo bufferInfo = {
-                
-            };
-
-        }
-        
-        auto SetSamplers(uint32_t slot, HAL::ArrayProxy<HAL::Sampler> const& samplers) -> void {
-            vk::DescriptorImageInfo samplerInfo = {
-                
-            };                 
-        }
-
-        auto UpdateDescriptors() -> void {
-
-            std::vector<vk::WriteDescriptorSet> descriptortWrites;
-                      
-            descriptortWrites.push_back(vk::WriteDescriptorSet {
-                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsUniformBuffer)),
-                .descriptorType = vk::DescriptorType::eUniformBufferDynamic,           
-                .pBufferInfo = std::data(m_DescriptorsUniformBuffer)              
-            });
-
-            descriptortWrites.push_back(vk::WriteDescriptorSet {
-                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsStorageBuffer)),
-                .descriptorType = vk::DescriptorType::eStorageBuffer,
-                .pBufferInfo = std::data(m_DescriptorsStorageBuffer)
-            });
-
-            descriptortWrites.push_back(vk::WriteDescriptorSet {
-                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageSampled)),
-                .descriptorType = vk::DescriptorType::eSampledImage,
-                .pImageInfo = std::data(m_DescriptorsImageSampled)
-            });
-        
-            descriptortWrites.push_back(vk::WriteDescriptorSet {
-                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageStorage)),
-                .descriptorType = vk::DescriptorType::eStorageImage,
-                .pImageInfo = std::data(m_DescriptorsImageStorage)
-            });
-
-            descriptortWrites.push_back(vk::WriteDescriptorSet {
-                .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsSampler)),
-                .descriptorType = vk::DescriptorType::eSampler,
-                .pImageInfo = std::data(m_DescriptorsSampler)
-            });
-
-            //m_pDescriptorSet.getOwner().updateDescriptorSets(std::size(descriptortWrites), std::data(descriptortWrites), 0, nullptr);
-        }        
-
-    private:
-        std::vector<vk::DescriptorBufferInfo> m_DescriptorsUniformBuffer;
-        std::vector<vk::DescriptorBufferInfo> m_DescriptorsStorageBuffer;
-        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageSampled;
-        std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageStorage;
-        std::vector<vk::DescriptorImageInfo>  m_DescriptorsSampler;
-
-        std::reference_wrapper<DescriptorAllocator> m_Allocator;
-        vk::DescriptorSet                           m_pDescriptorSet;
-    };
-
-    struct DescriptorAllocatorCreateInfo {
-        uint32_t UniformBufferCount;
-        uint32_t StorageBufferCount;
-        uint32_t SampledImageCount;
-        uint32_t StorageImageCount;
-        uint32_t SamplerCount;
-        uint32_t MaxSets;
-    };
-
-    class DescriptorAllocator {
-    public:
-        DescriptorAllocator(HAL::Device const& pDevice, DescriptorAllocatorCreateInfo const& createInfo) {
-            vk::DescriptorPoolSize descriptorPoolSizes[] = {
-                vk::DescriptorPoolSize{.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = createInfo.UniformBufferCount},
-                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageBuffer, .descriptorCount = createInfo.StorageBufferCount},
-                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampledImage, .descriptorCount = createInfo.SampledImageCount},
-                vk::DescriptorPoolSize{.type = vk::DescriptorType::eStorageImage, .descriptorCount = createInfo.StorageImageCount},
-                vk::DescriptorPoolSize{.type = vk::DescriptorType::eSampler,.descriptorCount = createInfo.SamplerCount}
-            };
-
-            vk::DescriptorPoolCreateInfo descriptorPoolCI = {
-                .maxSets = createInfo.MaxSets,
-                .poolSizeCount = _countof(descriptorPoolSizes),
-                .pPoolSizes = descriptorPoolSizes               
-            };
-            m_pDescriptorPool = pDevice.GetVkDevice().createDescriptorPoolUnique(descriptorPoolCI);
-        }
-
-        auto Allocate(vk::DescriptorSetLayout layout, std::optional<uint32_t> dynamicDescriptorCount = std::nullopt) -> DescriptorTable {
-            
-            uint32_t pDescriptorCount[] = { dynamicDescriptorCount.value_or(0) };
-
-            vk::DescriptorSetLayout pDescriptorSetLayouts[] = {
-                layout
-            };
-
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo descriptorSetVariableDescriptorCountAI = {
-                .descriptorSetCount = _countof(pDescriptorCount),
-                .pDescriptorCounts = pDescriptorCount
-            };
-
-            vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo = {
-                .pNext = &descriptorSetVariableDescriptorCountAI,
-                .descriptorPool = m_pDescriptorPool.get(),
-                .descriptorSetCount = _countof(pDescriptorSetLayouts),
-                .pSetLayouts = pDescriptorSetLayouts
-            };
-
-            auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
-        }
-
-        auto Reset() -> void {
-            m_pDescriptorPool.getOwner().resetDescriptorPool(m_pDescriptorPool.get());
-        }
-
-        auto GetVkDescriptorPool() -> vk::DescriptorPool {
-            return m_pDescriptorPool.get();
-        }
-
-    private:
-        vk::UniqueDescriptorPool m_pDescriptorPool;
-    };
-    
-
     std::unique_ptr<HAL::SwapChain> pHALSwapChain; {
         HAL::SwapChainCreateInfo swapChainCI = {
             .Width = WINDOW_WIDTH,
@@ -949,7 +990,6 @@ int main(int argc, char* argv[]) {
         };
         pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
     }
-
 
     std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
@@ -985,176 +1025,38 @@ int main(int argc, char* argv[]) {
         pHALRenderPass = std::make_unique<HAL::RenderPass>(*pHALDevice, renderPassCI);
     } 
 
-    
-
     auto pHALCommandList = std::make_unique<HAL::GraphicsCommandList>(*pHALGraphicsCmdAllocator);
     auto pHALFence = std::make_unique<HAL::Fence>(*pHALDevice);
     
     std::unique_ptr<HAL::ShaderCompiler> pHALCompiler; {
         HAL::ShaderCompilerCreateInfo shaderCompilerCI = {
             .ShaderModelVersion = HAL::ShaderModel::SM_6_5, 
-            .IsDebugMode = false 
+            .IsDebugMode = true 
         };
         pHALCompiler = std::make_unique< HAL::ShaderCompiler>(shaderCompilerCI);
     }
 
+    std::unique_ptr<HAL::GraphicsPipeline> pHALGraphicsPipeline;
+    std::unique_ptr<HAL::ComputePipeline>  pHALComputePipeline;
+
     {
-        //auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
-        //auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment, {});
+        auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
+        auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment, {});
         auto spirvCS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"CSMain", HAL::ShaderStage::Compute, {});
-
-      //  HAL::ShaderModule shaderModuleVS(pHALDevice->GetVkDevice(), spirvVS.value());
-      //  HAL::ShaderModule shaderModulePS(pHALDevice->GetVkDevice(), spirvPS.value());
-        HAL::ShaderModule shaderModuleCS(pHALDevice->GetVkDevice(), spirvCS.value());
-        
-        HAL::PipelineCache pipelineCache(*pHALDevice);
-        HAL::ComputePipeline testPipeline(*pHALDevice, shaderModuleCS);   
-
-
-        pipelineCache.GetComputePipeline(testPipeline, {});
-  
-
-            
+      
+        HAL::GraphicsPipelineCreateInfo graphicsPipelineCI = {
+            .VS = { std::data(*spirvVS), std::size(*spirvVS) },
+            .PS = { std::data(*spirvPS), std::size(*spirvPS) }
+        };
+    
+        HAL::ComputePipelineCreateInfo computePipelineCI = {
+            .CS = { std::data(*spirvCS), std::size(*spirvCS) },
+        };
+     
+        pHALGraphicsPipeline = std::make_unique<HAL::GraphicsPipeline>(*pHALDevice, graphicsPipelineCI);
+        pHALComputePipeline  = std::make_unique<HAL::ComputePipeline>(*pHALDevice, computePipelineCI);   
     }
-
-  
-
-    //{
-    //
-    //    vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
-    //        vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = "VSMain" },
-    //        vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = "PSMain" },
-    //    };
-    //
-    //    vk::PipelineViewportStateCreateInfo viewportStateCI = {
-    //        .viewportCount = 1,
-    //        .scissorCount = 1
-    //    };
-    //
-    //    vk::PipelineInputAssemblyStateCreateInfo inputAssemblyStateCI = {
-    //        .topology = vk::PrimitiveTopology::eTriangleList,
-    //        .primitiveRestartEnable = false
-    //    };
-    //
-    //    vk::PipelineVertexInputStateCreateInfo vertexInputStateCI = {
-    //        .vertexBindingDescriptionCount = 0,
-    //        .vertexAttributeDescriptionCount = 0
-    //    };
-    //
-    //    vk::PipelineColorBlendAttachmentState colorBlendAttachments[] = {
-    //        vk::PipelineColorBlendAttachmentState{
-    //            .blendEnable = false,
-    //            .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-    //        }
-    //    };
-    //
-    //    vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
-    //        .depthTestEnable = true,
-    //        .depthWriteEnable = false,
-    //        .depthCompareOp = vk::CompareOp::eLess,
-    //        .stencilTestEnable = false
-    //    };
-    //
-    //    vk::PipelineMultisampleStateCreateInfo multisampleStateCI = {
-    //        .rasterizationSamples = vk::SampleCountFlagBits::e1
-    //    };
-    //
-    //    vk::PipelineColorBlendStateCreateInfo colorBlendStateCI = {
-    //        .logicOpEnable = false,
-    //        .attachmentCount = _countof(colorBlendAttachments),
-    //        .pAttachments = colorBlendAttachments,
-    //    };
-    //
-    //    vk::PipelineRasterizationStateCreateInfo rasterizationStateCI = {
-    //        .depthClampEnable = false,
-    //        .rasterizerDiscardEnable = false,
-    //        .polygonMode = vk::PolygonMode::eFill,
-    //        .cullMode = vk::CullModeFlagBits::eNone,
-    //        .frontFace = vk::FrontFace::eClockwise,
-    //        .lineWidth = 1.0f
-    //    };
-    //
-    //    vk::DynamicState dynamicStates[] = {
-    //        vk::DynamicState::eScissor,
-    //        vk::DynamicState::eViewport
-    //    };
-    //
-    //    vk::PipelineDynamicStateCreateInfo dynamicStateCI = {
-    //        .dynamicStateCount = _countof(dynamicStates),
-    //        .pDynamicStates = dynamicStates
-    //    };
-    //
-    //
-    //    vk::GraphicsPipelineCreateInfo pipelineCI{
-    //            .stageCount = _countof(shaderStagesCI),
-    //            .pStages = shaderStagesCI,
-    //            .pVertexInputState = &vertexInputStateCI,
-    //            .pInputAssemblyState = &inputAssemblyStateCI,
-    //            .pViewportState = &viewportStateCI,
-    //            .pRasterizationState = &rasterizationStateCI,
-    //            .pMultisampleState = &multisampleStateCI,
-    //            .pDepthStencilState = &depthStencilStateCI,
-    //            .pColorBlendState = &colorBlendStateCI,
-    //            .pDynamicState = &dynamicStateCI,
-    //            .layout = *pPipelineLayout,
-    //            .renderPass = pHALRenderPass->GetVkRenderPass(),
-    //    };
-    //
-    //}
-
-  
-
-   // std::unique_ptr<HAL::GraphicsPipeline> pPipeline; {
-   //   
-   //     auto const spirvVS = *compiler.CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
-   //     auto const spirvPS = *compiler.CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Pixel,  {});
-   //
-   //     HAL::GraphicsPipelineCreateInfo pipelineCI = {
-   //         .VS = { .pData = std::data(spirvVS), .Size = std::size(spirvVS) },
-   //         .PS = { .pData = std::data(spirvPS), .Size = std::size(spirvPS) },
-   //     };
-   //
-   //     pPipeline = std::make_unique<HAL::GraphicsPipeline>(pHALDevice, pHALRenderPass, pipelineCI);
-   // }
-   //
-
-
-   //
-   // std::vector<vk::UniqueDescriptorPool> descriptorPools;
-   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
-   //     vk::DescriptorPoolSize descriptorPoolSize[] = {
-   //         vk::DescriptorPoolSize {
-   //             .type = vk::DescriptorType::eUniformBufferDynamic,
-   //             .descriptorCount = 1
-   //         }
-   //     };
-   //
-   //     vk::DescriptorPoolCreateInfo descriptorPoolCI = {
-   //         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-   //         .maxSets = 1,
-   //         .poolSizeCount = _countof(descriptorPoolSize),
-   //         .pPoolSizes = descriptorPoolSize
-   //     };
-   //     auto pDescriptorPool = pDevice.createDescriptorPoolUnique(descriptorPoolCI);
-   //     vkx::setDebugName(pDevice, *pDescriptorPool, fmt::format("[{0}]", index));
-   //     descriptorPools.push_back(std::move(pDescriptorPool));
-   // }
-   //
-   // std::vector<vk::UniqueDescriptorSet> descriptorSets;
-   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
-   //     vk::DescriptorSetLayout descriptorSetLayouts[] = {
-   //         *pDescriptorSetLayout
-   //     };
-   //
-   //     vk::DescriptorSetAllocateInfo descriptorSetAI = {
-   //         .descriptorPool = *descriptorPools[index],
-   //         .descriptorSetCount = _countof(descriptorSetLayouts),
-   //         .pSetLayouts = descriptorSetLayouts
-   //     };
-   //     auto pDescriptorSet = std::move(pDevice.allocateDescriptorSetsUnique(descriptorSetAI).front());
-   //     vkx::setDebugName(pDevice, *pDescriptorSet, fmt::format("[{0}]", index));
-   //     descriptorSets.push_back(std::move(pDescriptorSet));
-   // }
+    
    
     //std::vector<std::tuple<vk::UniqueBuffer, vma::UniqueAllocation, vma::AllocationInfo>> uniformBuffers;
     //for (size_t index = 0; index < BUFFER_COUNT; index++) {   
@@ -1369,13 +1271,15 @@ int main(int argc, char* argv[]) {
                     .LayerCount = 1            
                 }         
             };
-        
-            
+                   
             pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});  
-            
-
-            ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());                   
+            ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());               
             pHALCommandList->EndRenderPass();
+
+            // pHALCommandList->SetComputePipeline(pHALPipeline);
+            // pHALCommandList->SetDescriptorTable(0, pHALDescriptorTable);    
+            // pHALCommandList->Dispath(64, 64, 1);
+
 
         }
         pHALCommandList->End();
@@ -1408,12 +1312,6 @@ int main(int argc, char* argv[]) {
     ImPlot::DestroyContext();
     ImGui::DestroyContext();
 
-  
  
-
-
-
-
-
 }
 

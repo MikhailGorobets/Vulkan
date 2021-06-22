@@ -83,7 +83,7 @@ namespace HAL {
     constexpr size_t InternalSize_Fence     = 40;
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 32;
+    constexpr size_t InternalSize_CommandList = 48;
     constexpr size_t InternalSize_RenderPass = 144;
     constexpr size_t InternalSize_ShaderCompiler = 56;
 #else
@@ -95,7 +95,7 @@ namespace HAL {
     constexpr size_t InternalSize_Compiler  = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
     constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 32;
+    constexpr size_t InternalSize_CommandList = 48;
     constexpr size_t InternalSize_RenderPass = 120;
     constexpr size_t InternalSize_ShaderCompiler = 56;
 #endif
@@ -128,6 +128,7 @@ namespace HAL {
    
 }
 
+//TODO only C-API
 namespace vk {
     class Instance;
     class PhysicalDevice;

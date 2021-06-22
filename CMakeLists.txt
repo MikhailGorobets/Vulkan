@@ -4,6 +4,7 @@ project(Vulkan CXX)
 
 set(PROJECT_CONTENT            "${CMAKE_CURRENT_SOURCE_DIR}/content")
 set(PROJECT_DIRECTORY          "${CMAKE_CURRENT_SOURCE_DIR}")
+set(PROJECT_OUTPUT_DIRECTORY   "${PROJECT_DIRECTORY}/x64")
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_DIRECTORY}/cmake")
 
 include(cmake_settings)
