@@ -11,6 +11,7 @@ namespace HAL {
          auto GetCommandPool() const -> vk::CommandPool;
     
          auto GetDevice() const -> vk::Device;
+
     private:
         vk::UniqueCommandPool m_pCommandPool;
     };  

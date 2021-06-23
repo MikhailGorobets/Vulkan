@@ -22,6 +22,7 @@ namespace HAL {
         auto IsCompleted() const -> bool;
     
         auto GetVkSemaphore() const -> vk::Semaphore;
+
     private:
         vk::UniqueSemaphore m_pSemaphore = {};
         uint64_t            m_ExpectedValue = 0;

@@ -17,6 +17,7 @@ namespace HAL {
         auto EndRenderPass() -> void;
 
         auto GetVkCommandBuffer() const -> vk::CommandBuffer { return *m_pCommandBuffer; }
+
     private:
         vk::UniqueCommandBuffer m_pCommandBuffer;
         vk::RenderPass          m_CurrentRenderPass;

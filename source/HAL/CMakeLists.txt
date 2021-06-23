@@ -11,10 +11,13 @@ set(INCLUDE
     include/DeviceImpl.hpp
     include/FenceImpl.hpp
     include/InstanceImpl.hpp
+    include/PipelineCache.hpp
+    include/PipelineImpl.hpp
     include/RenderPassImpl.hpp
     include/ShaderCompilerImpl.hpp
     include/SwapChainImpl.hpp
-  
+    include/ShaderModule.hpp
+    
 )
 
 set(INTERFACE 
@@ -29,8 +32,8 @@ set(INTERFACE
     interface/HAL/CommandList.hpp
     interface/HAL/CommandAllocator.hpp
     interface/HAL/RenderPass.hpp
+    interface/HAL/Pipeline.hpp
 )
-
 
 set(SOURCE
     source/AdapterImpl.cpp
@@ -40,13 +43,17 @@ set(SOURCE
     source/DeviceImpl.cpp   
     source/FenceImpl.cpp    
     source/InstanceImpl.cpp
+    source/PipelineCache.cpp
+    source/PipelineImpl.cpp
     source/RenderPassImpl.cpp
     source/ShaderCompilerImpl.cpp
+    source/ShaderModule.cpp
     source/SwapChainImpl.cpp
 )
 
 source_group("include"   FILES ${INCLUDE})
 source_group("interface" FILES ${INTERFACE})
 source_group("source"    FILES ${SOURCE})
+
 
 add_library(HAL ${INCLUDE} ${INTERFACE} ${SOURCE})

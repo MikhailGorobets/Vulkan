@@ -24,6 +24,7 @@ namespace HAL {
         auto ExecuteCommandList(ArrayProxy<T> const& cmdLists) const -> void;
 
         auto GetVkQueue() const -> vk::Queue;       
+
     private:
         vk::Queue m_Queue = {};          
     };

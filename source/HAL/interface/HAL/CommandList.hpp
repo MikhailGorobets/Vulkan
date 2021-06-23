@@ -11,15 +11,7 @@ namespace HAL {
         uint32_t                        AttachmentCount = {};   
     };
     
-    struct GraphicsState;
-    
-    struct ComputeState;
 
-    class GraphicsPipeline;    
-
-    class ComputePipeline;
-    
-    class DescriptorTable;
 
     class CommandList: NonCopyable {
     public:

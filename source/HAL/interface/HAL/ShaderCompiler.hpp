@@ -8,16 +8,6 @@ namespace HAL {
         SM_6_5
     };
     
-    enum class ShaderStage {
-        Vertex,
-        Hull,
-        Domain,
-        Geometry,
-        Fragment,
-        Compute     
-    };
-
-
 
     struct ShaderCompilerCreateInfo {
         ShaderModel ShaderModelVersion;
@@ -39,5 +29,4 @@ namespace HAL {
     private:    
         InternalPtr<Internal, InternalSize_ShaderCompiler> m_pInternal;   
     };
-
 }

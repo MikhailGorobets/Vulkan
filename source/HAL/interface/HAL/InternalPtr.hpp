@@ -7,6 +7,26 @@
 #include <vector>
 #include <string>
 
+
+//TODO only C-API
+namespace vk {
+    class Instance;
+    class PhysicalDevice;
+    class Device;
+    class SwapchainKHR;
+    class Queue;
+    class CommandPool;
+    class CommandBuffer;
+    class PipelineCache;
+    class Semaphore;
+    class ImageView;
+    class RenderPassCreateInfo;
+    enum class Format;
+    enum class DescriptorType;
+    enum class ShaderStageFlagBits: uint32_t;
+}
+
+
 namespace std {
     template<typename T> using observer_ptr = T*; 
 }
@@ -86,6 +106,7 @@ namespace HAL {
     constexpr size_t InternalSize_CommandList = 48;
     constexpr size_t InternalSize_RenderPass = 144;
     constexpr size_t InternalSize_ShaderCompiler = 56;
+    constexpr size_t InternalSize_Pipeline  = 136;
 #else
     constexpr size_t InternalSize_Adapter   = 2616;
     constexpr size_t InternalSize_Instance  = 104; 
@@ -98,6 +119,7 @@ namespace HAL {
     constexpr size_t InternalSize_CommandList = 48;
     constexpr size_t InternalSize_RenderPass = 120;
     constexpr size_t InternalSize_ShaderCompiler = 56;
+    constexpr size_t InternalSize_Pipeline = 112;
 #endif
 
 }
@@ -125,22 +147,122 @@ namespace HAL {
     class ComputeCommandList;
     class GraphicsCommandList;
     class ShaderCompiler;
-   
+    class GraphicsPipeline;
+    class ComputePipeline;
+    class DescriptorTable;
+       
 }
 
-//TODO only C-API
-namespace vk {
-    class Instance;
-    class PhysicalDevice;
-    class Device;
-    class SwapchainKHR;
-    class Queue;
-    class CommandPool;
-    class CommandBuffer;   
-    class PipelineCache;
-    class Semaphore;
-    class ImageView;
-    class RenderPassCreateInfo;
-    enum class Format;
-    
+namespace HAL {
+
+    enum class Format {
+
+    };
+
+    enum class FillMode {
+        Solid,
+        Line,
+        Point
+    };
+
+    enum class CullMode {
+        None,
+        Front,
+        Back,
+    };
+
+    enum class ComparisonFunction {
+        Never,
+        Less,
+        Equal,
+        LessOrEqual,
+        Greater,
+        NotEqual,
+        GreaterOrEqual,
+        Always
+    };
+
+    enum class BlendFactor {
+
+    };
+
+    enum class BlendFunction {
+
+    };
+
+    enum class FrontFace {
+        CounterClockwise,
+        Clockwise
+    };
+
+    enum class ShaderStage {
+        Vertex,
+        Hull,
+        Domain,
+        Geometry,
+        Fragment,
+        Compute
+    };
+
+    struct PipelineResource {
+        uint32_t                SetID;
+        uint32_t                BindingID;
+        uint32_t                DescriptorCount;
+        vk::DescriptorType      DescriptorType;
+        vk::ShaderStageFlagBits Stages;
+    };
+
+    struct RasterizationState {
+        FillMode  FillMode;
+        CullMode  CullMode;
+        FrontFace FrontFace;
+    };
+
+    struct DepthStencilState {
+        bool               DepthEnable;
+        bool               DepthWrite;
+        ComparisonFunction DepthFunc;
+    };
+
+    struct RenderTargetBlendState {
+        bool          BlendEnable;
+        BlendFactor   ColorSrcBlend;
+        BlendFactor   ColorDstBlend;
+        BlendFunction ColorBlendOp;
+        BlendFactor   AlphaSrcBlend;
+        BlendFactor   AlphaDstBlend;
+        BlendFunction AlphaBlendOp;
+        uint8_t       WriteMask;
+    };
+
+    struct ColorBlendState {
+        RenderTargetBlendState RenderTarget[8];
+    };
+
+    struct ShaderBytecode {
+        uint8_t* pData;
+        uint64_t Size;
+    };
+
+    struct ComputeState {
+
+    };
+
+    struct GraphicsState {
+        RasterizationState RasterState;
+        DepthStencilState  DepthStencilState;
+        ColorBlendState    BlendState;
+    };
+
+    struct ComputePipelineCreateInfo {
+        ShaderBytecode CS;
+    };
+
+    struct GraphicsPipelineCreateInfo {
+        ShaderBytecode VS;
+        ShaderBytecode PS;
+        ShaderBytecode DS;
+        ShaderBytecode HS;
+        ShaderBytecode GS;
+    };
 }
