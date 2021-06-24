@@ -3,6 +3,7 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
+
     class CommandAllocator: NonCopyable {
     public:
         class Internal;
@@ -12,18 +13,18 @@ namespace HAL {
         CommandAllocator(CommandAllocator&&) noexcept;
 
         CommandAllocator& operator=(CommandAllocator&&) noexcept;
- 
-        ~CommandAllocator();  
-    
+
+        ~CommandAllocator();
+
         auto GetVkCommandPool() const -> vk::CommandPool;
 
-    protected:     
-        InternalPtr<Internal, InternalSize_CommandAllocator> m_pInternal;   
+    protected:
+        InternalPtr<Internal, InternalSize_CommandAllocator> m_pInternal;
     };
-    
+
     class TransferCommandAllocator: public CommandAllocator {
     public:
-        TransferCommandAllocator(Device const& device);       
+        TransferCommandAllocator(Device const& device);
     };
 
     class ComputeCommandAllocator: public CommandAllocator {

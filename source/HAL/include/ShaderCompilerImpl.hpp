@@ -7,16 +7,17 @@
 #include <vector>
 #include <string>
 
-namespace HAL { 
+namespace HAL {
+
     class ShaderCompiler::Internal {
     public:
         Internal(ShaderCompilerCreateInfo const& createInfo);
-        
-         auto CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
-         
-         auto CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
 
-         auto CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
+        auto CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
+
+        auto CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
+
+        auto CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>>;
 
     private:
         dxc::DxcDllSupport         m_DxcLoader;

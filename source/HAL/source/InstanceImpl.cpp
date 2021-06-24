@@ -19,7 +19,7 @@ namespace HAL {
 
         static vk::DynamicLoader vulkanDynamicLoader;
         VULKAN_HPP_DEFAULT_DISPATCHER.init(vulkanDynamicLoader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
-        
+
         m_ApiVersion = vk::enumerateInstanceVersion();
         m_LayerProperties = vk::enumerateInstanceLayerProperties();
         m_ExtensionProperties = vk::enumerateInstanceExtensionProperties();
@@ -34,12 +34,12 @@ namespace HAL {
                 if (vkx::isInstanceLayerAvailable(m_LayerProperties, INSTANCE_LAYERS[index])) {
                     instanceLayers.push_back(INSTANCE_LAYERS[index]);
                     continue;
-                }                     
+                }
                 fmt::print("Warning: Required Vulkan Instance Layer {0} not supported \n", INSTANCE_LAYERS[index]);
             }
         }
-       
-        std::vector<const char*> instanceExtensions;  
+
+        std::vector<const char*> instanceExtensions;
         for (size_t index = 0; index < _countof(INSTANCE_EXTENSION); index++) {
             if (vkx::isInstanceExtensionAvailable(m_ExtensionProperties, INSTANCE_EXTENSION[index])) {
                 instanceExtensions.push_back(INSTANCE_EXTENSION[index]);
@@ -66,11 +66,11 @@ namespace HAL {
         m_pInstance = vk::createInstanceUnique(instanceCI);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_pInstance);
 
-        for(auto const& physicalDevice: m_pInstance->enumeratePhysicalDevices()) {     
+        for (auto const& physicalDevice : m_pInstance->enumeratePhysicalDevices()) {
             auto adapter = HAL::Adapter::Internal(physicalDevice);
             m_Adapters.push_back(std::move(*reinterpret_cast<HAL::Adapter*>(&adapter)));
-        }         
-    }    
+        }
+    }
 }
 
 namespace HAL {

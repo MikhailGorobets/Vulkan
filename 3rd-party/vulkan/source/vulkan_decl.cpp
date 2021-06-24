@@ -9,10 +9,9 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 namespace vkx {
 
     static vk::PipelineStageFlags pipelineStageFromAccessFlags(vk::AccessFlags accessFlags, vk::PipelineStageFlags enabledShaderStages) {
-        vk::PipelineStageFlags stages = {};      
+        vk::PipelineStageFlags stages = {};
         while (accessFlags != vk::AccessFlagBits{}) {
-            
-            vk::AccessFlagBits accessFlag = vk::AccessFlagBits{ vk::AccessFlags::MaskType{ accessFlags } & (~(vk::AccessFlags::MaskType{ accessFlags } - 1)) };
+            vk::AccessFlagBits accessFlag = vk::AccessFlagBits{vk::AccessFlags::MaskType{ accessFlags } &(~(vk::AccessFlags::MaskType{ accessFlags } - 1))};
             accessFlags &= ~accessFlag;
             switch (accessFlag) {
                 case vk::AccessFlagBits::eIndirectCommandRead:
@@ -161,7 +160,7 @@ namespace vkx {
                 srcStages = vk::PipelineStageFlagBits::eTopOfPipe;
         }
 
-        cmdBuffer.pipelineBarrier(srcStages, dstStages, {}, {}, {}, { imageBarrier });
+        cmdBuffer.pipelineBarrier(srcStages, dstStages, {}, {}, {}, {imageBarrier});
     }
 
     void bufferTransition(vk::CommandBuffer cmdBuffer, BufferTransition const& desc) {
@@ -174,10 +173,10 @@ namespace vkx {
             .offset = 0,
             .size = VK_WHOLE_SIZE
         };
-            
+
         vk::PipelineStageFlags srcStages = desc.srcStages;
         vk::PipelineStageFlags dstStages = desc.dstStages;
-    
+
         if (srcStages == vk::PipelineStageFlags{}) {
             if (bufferBarrier.srcAccessMask != vk::AccessFlags{})
                 srcStages = pipelineStageFromAccessFlags(bufferBarrier.srcAccessMask, desc.enabledShaderStages);
@@ -188,6 +187,6 @@ namespace vkx {
         if (dstStages == vk::PipelineStageFlags{})
             dstStages = pipelineStageFromAccessFlags(bufferBarrier.dstAccessMask, desc.enabledShaderStages);
 
-        cmdBuffer.pipelineBarrier(srcStages, dstStages, {}, {}, { bufferBarrier }, {});
+        cmdBuffer.pipelineBarrier(srcStages, dstStages, {}, {}, {bufferBarrier}, {});
     }
 }

@@ -6,8 +6,11 @@
 #include "ShaderModule.hpp"
 #include "PipelineImpl.hpp"
 
-
 namespace HAL {
+
+    struct PipelineCacheCreateInfo {
+
+    };
 
     class PipelineCache {
     private:
@@ -50,22 +53,24 @@ namespace HAL {
         using PipelinesCache = std::unordered_map<Key, vk::UniquePipeline, Hash>;
 
     public:
-        PipelineCache(Device const& device);
+        PipelineCache(Device const& device, PipelineCacheCreateInfo const& createInfo);
 
-        auto CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const->vk::UniquePipeline;
+        auto GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::Pipeline;
 
-        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state)->vk::UniquePipeline;
+        auto GetGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) const -> vk::Pipeline;
+    
+        auto GetVkPipelineCache() -> vk::PipelineCache { return m_pVkPipelineCache.get(); }
 
-        auto GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state)->vk::Pipeline;
-
-        auto GetGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state)->vk::UniquePipeline;
-
-        auto Reset() -> void;
+        auto Flush() -> void;
 
     private:
-        std::reference_wrapper<const Device> m_Device;
-        PipelinesCache<GraphicsPipelineKey, GraphicsPipelineKeyHash> m_GraphicsPipelineCache;
-        PipelinesCache<ComputePipelineKey, ComputePipelineKeyyHash>  m_ComputePipelineCache;
-    };
+        auto CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline;
 
+        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline;
+
+    private:
+        vk::UniquePipelineCache m_pVkPipelineCache = {};
+        mutable PipelinesCache<GraphicsPipelineKey, GraphicsPipelineKeyHash> m_GraphicsPipelineCache;
+        mutable PipelinesCache<ComputePipelineKey, ComputePipelineKeyyHash>  m_ComputePipelineCache;
+    };
 }

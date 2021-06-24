@@ -371,26 +371,26 @@ void SetCurrentContext(ImPlotContext* ctx) {
 }
 
 void Initialize(ImPlotContext* ctx) {
-    Reset(ctx);
+    Flush(ctx);
     ctx->Colormap = GetColormap(ImPlotColormap_Default, &ctx->ColormapSize);
 }
 
-void Reset(ImPlotContext* ctx) {
+void Flush(ImPlotContext* ctx) {
     // end child window if it was made
     if (ctx->ChildWindowMade)
         ImGui::EndChild();
     ctx->ChildWindowMade = false;
     // reset the next plot/item data
-    ctx->NextPlotData.Reset();
-    ctx->NextItemData.Reset();
+    ctx->NextPlotData.Flush();
+    ctx->NextItemData.Flush();
     // reset items count
     ctx->VisibleItemCount = 0;
     // reset ticks/labels
-    ctx->XTicks.Reset();
+    ctx->XTicks.Flush();
     for (int i = 0; i < 3; ++i)
-        ctx->YTicks[i].Reset();
+        ctx->YTicks[i].Flush();
     // reset labels
-    ctx->Annotations.Reset();
+    ctx->Annotations.Flush();
     // reset extents/fit
     ctx->FitThisFrame = false;
     ctx->FitX = false;
@@ -1234,7 +1234,7 @@ bool BeginPlot(const char* title, const char* x_label, const char* y1_label, con
     ImGuiContext &G      = *GImGui;
     ImGuiWindow * Window = G.CurrentWindow;
     if (Window->SkipItems) {
-        Reset(GImPlot);
+        Flush(GImPlot);
         return false;
     }
 
@@ -1363,7 +1363,7 @@ bool BeginPlot(const char* title, const char* x_label, const char* y1_label, con
     plot.FrameRect = ImRect(Window->DC.CursorPos, Window->DC.CursorPos + frame_size);
     ImGui::ItemSize(plot.FrameRect);
     if (!ImGui::ItemAdd(plot.FrameRect, ID, &plot.FrameRect)) {
-        Reset(GImPlot);
+        Flush(GImPlot);
         return false;
     }
     plot.FrameHovered = ImGui::ItemHoverable(plot.FrameRect, ID);
@@ -1911,7 +1911,7 @@ bool BeginPlot(const char* title, const char* x_label, const char* y1_label, con
     ImGui::PopClipRect();
 
     // clear legend
-    plot.LegendData.Reset();
+    plot.LegendData.Flush();
     // push plot ID into stack
     ImGui::PushID(ID);
     return true;
@@ -2506,7 +2506,7 @@ void EndPlot() {
     // Pop ImGui::PushID at the end of BeginPlot
     ImGui::PopID();
     // Reset context for next plot
-    Reset(GImPlot);
+    Flush(GImPlot);
 }
 
 //-----------------------------------------------------------------------------
@@ -3370,7 +3370,7 @@ ImVec4 NextColormapColor() {
 void ShowColormapScale(double scale_min, double scale_max, float height) {
     ImPlotContext& gp = *GImPlot;
     static ImPlotTickCollection ticks;
-    ticks.Reset();
+    ticks.Flush();
     ImPlotRange range;
     range.Min = scale_min;
     range.Max = scale_max;

@@ -6,33 +6,31 @@
 namespace HAL {
 
     struct RenderPassBeginInfo {
-        const RenderPass*               pRenderPass = {};
+        const RenderPass* pRenderPass = {};
         const RenderPassAttachmentInfo* pAttachments = {};
-        uint32_t                        AttachmentCount = {};   
+        uint32_t                        AttachmentCount = {};
     };
-    
-
 
     class CommandList: NonCopyable {
     public:
         class Internal;
     protected:
         CommandList(CommandAllocator const& allocator);
-    public:       
+    public:
         CommandList(CommandList&&) noexcept;
-       
-        CommandList& operator=(CommandList&&) noexcept;        
 
-        ~CommandList();  
-    
+        CommandList& operator=(CommandList&&) noexcept;
+
+        ~CommandList();
+
         auto Begin() -> void;
-        
-        auto End() -> void;    
+
+        auto End() -> void;
 
         auto GetVkCommandBuffer() const -> vk::CommandBuffer;
 
-    protected:     
-        InternalPtr<Internal, InternalSize_CommandList> m_pInternal;   
+    protected:
+        InternalPtr<Internal, InternalSize_CommandList> m_pInternal;
     };
 
     class TransferCommandList: public CommandList {
@@ -44,10 +42,10 @@ namespace HAL {
     public:
         ComputeCommandList(ComputeCommandAllocator const& allocator);
 
-        auto SetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> void;
-    
-        auto SetDescriptorTable(uint32_t slot, DescriptorTable const& table) const -> void;
-    
+        auto SetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) -> void;
+
+        auto SetDescriptorTable(uint32_t slot, DescriptorTable const& table) -> void;
+
         auto Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ);
     };
 
@@ -58,8 +56,8 @@ namespace HAL {
         auto BeginRenderPass(RenderPassBeginInfo const& beginInfo) -> void;
 
         auto EndRenderPass() -> void;
-        
+
         auto SetGraphicsPipeline(GraphicsPipeline const& pipeline, GraphicsState const& state) const -> void;
-        
+
     };
 }

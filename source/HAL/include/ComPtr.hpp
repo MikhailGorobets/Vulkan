@@ -3,9 +3,10 @@
 #include <cassert>
 
 namespace HAL {
+
     template<typename T>
     struct ComPtr {
-        ComPtr(T* pComObj = nullptr) : m_pComObj(pComObj) {
+        ComPtr(T* pComObj = nullptr): m_pComObj(pComObj) {
             static_assert(std::is_base_of<IUnknown, T>::value, "T needs to be IUnknown based");
             if (m_pComObj)
                 m_pComObj->AddRef();
@@ -96,21 +97,21 @@ namespace HAL {
         T* m_pComObj;
     };
 
-    class ComException : public std::exception {
-	public:
-		ComException(HRESULT hr) : m_Result(hr) {}
+    class ComException: public std::exception {
+    public:
+        ComException(HRESULT hr): m_Result(hr) {}
 
-		const char* what() const override {
-			static char s_str[64] = {};
-			sprintf_s(s_str, "Failure with HRESULT of %08X" ,static_cast<uint32_t>(m_Result));
-			return s_str;
-		}
-	private:
-		HRESULT m_Result;
-	};
+        const char* what() const override {
+            static char s_str[64] = {};
+            sprintf_s(s_str, "Failure with HRESULT of %08X", static_cast<uint32_t>(m_Result));
+            return s_str;
+        }
+    private:
+        HRESULT m_Result;
+    };
 
-	inline auto ThrowIfFailed(HRESULT hr) -> void {
-		if (FAILED(hr))	
-			throw ComException(hr);
-	}
+    inline auto ThrowIfFailed(HRESULT hr) -> void {
+        if (FAILED(hr))
+            throw ComException(hr);
+    }
 }

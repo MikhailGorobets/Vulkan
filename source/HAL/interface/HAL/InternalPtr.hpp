@@ -26,6 +26,10 @@ namespace vk {
     enum class ShaderStageFlagBits: uint32_t;
 }
 
+namespace vma {
+    class Allocator;
+}
+
 
 namespace std {
     template<typename T> using observer_ptr = T*; 
@@ -92,36 +96,32 @@ namespace HAL {
 }
 
 namespace HAL {
-
-
 #ifdef _DEBUG
-
-    constexpr size_t InternalSize_Adapter   = 2632;
-    constexpr size_t InternalSize_Instance  = 128; 
-    constexpr size_t InternalSize_Device    = 200;
+    constexpr size_t InternalSize_Adapter = 2632;
+    constexpr size_t InternalSize_Instance = 128;
+    constexpr size_t InternalSize_Device = 184;
     constexpr size_t InternalSize_SwapChain = 360;
-    constexpr size_t InternalSize_Fence     = 40;
+    constexpr size_t InternalSize_Fence = 40;
     constexpr size_t InternalSize_CommandQueue = 8;
-    constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 48;
+    constexpr size_t InternalSize_CommandAllocator = 40;
+    constexpr size_t InternalSize_CommandList = 56;
     constexpr size_t InternalSize_RenderPass = 144;
     constexpr size_t InternalSize_ShaderCompiler = 56;
-    constexpr size_t InternalSize_Pipeline  = 136;
+    constexpr size_t InternalSize_Pipeline = 136;
 #else
-    constexpr size_t InternalSize_Adapter   = 2616;
-    constexpr size_t InternalSize_Instance  = 104; 
-    constexpr size_t InternalSize_Device    = 176;
+    constexpr size_t InternalSize_Adapter = 2616;
+    constexpr size_t InternalSize_Instance = 104;
+    constexpr size_t InternalSize_Device = 160;
     constexpr size_t InternalSize_SwapChain = 320;
-    constexpr size_t InternalSize_Fence     = 40;
-    constexpr size_t InternalSize_Compiler  = 64;
+    constexpr size_t InternalSize_Fence = 40;
+    constexpr size_t InternalSize_Compiler = 64;
     constexpr size_t InternalSize_CommandQueue = 8;
-    constexpr size_t InternalSize_CommandAllocator = 32;
-    constexpr size_t InternalSize_CommandList = 48;
+    constexpr size_t InternalSize_CommandAllocator = 40;
+    constexpr size_t InternalSize_CommandList = 56;
     constexpr size_t InternalSize_RenderPass = 120;
     constexpr size_t InternalSize_ShaderCompiler = 56;
     constexpr size_t InternalSize_Pipeline = 112;
 #endif
-
 }
 
 

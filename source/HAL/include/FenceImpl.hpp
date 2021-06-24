@@ -5,6 +5,7 @@
 #include <vulkan/vulkan_decl.h>
 
 namespace HAL {
+
     class Fence::Internal {
     public:
         Internal(Device const& device, uint64_t value);

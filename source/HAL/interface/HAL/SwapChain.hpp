@@ -3,6 +3,7 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
+
     enum class PresentationMode {
         Windowed,
         BoaredlessFullScreen,

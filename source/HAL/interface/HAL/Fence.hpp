@@ -3,6 +3,7 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
+
     class Fence: NonCopyable {
     public:
         class Internal;

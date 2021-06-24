@@ -287,7 +287,7 @@ struct ImPlotAnnotationCollection {
     ImGuiTextBuffer            TextBuffer;
     int                        Size;
 
-    ImPlotAnnotationCollection() { Reset(); }
+    ImPlotAnnotationCollection() { Flush(); }
 
     void AppendV(const ImVec2& pos, const ImVec2& off, ImU32 bg, ImU32 fg, bool clamp, const char* fmt,  va_list args) IM_FMTLIST(7) {
         ImPlotAnnotation an;
@@ -313,7 +313,7 @@ struct ImPlotAnnotationCollection {
         return TextBuffer.Buf.Data + Annotations[idx].TextOffset;
     }
 
-    void Reset() {
+    void Flush() {
         Annotations.shrink(0);
         TextBuffer.Buf.shrink(0);
         Size = 0;
@@ -350,7 +350,7 @@ struct ImPlotTickCollection {
     float                MaxHeight;
     int                  Size;
 
-    ImPlotTickCollection() { Reset(); }
+    ImPlotTickCollection() { Flush(); }
 
     void Append(const ImPlotTick& tick) {
         if (tick.ShowLabel) {
@@ -374,7 +374,7 @@ struct ImPlotTickCollection {
         return TextBuffer.Buf.Data + Ticks[idx].TextOffset;
     }
 
-    void Reset() {
+    void Flush() {
         Ticks.shrink(0);
         TextBuffer.Buf.shrink(0);
         TotalWidth = TotalHeight = MaxWidth = MaxHeight = 0;
@@ -520,7 +520,7 @@ struct ImPlotLegendData
 {
     ImVector<int>   Indices;
     ImGuiTextBuffer Labels;
-    void Reset() { Indices.shrink(0); Labels.Buf.shrink(0); }
+    void Flush() { Indices.shrink(0); Labels.Buf.shrink(0); }
 };
 
 // Holds Plot state information that must persist after EndPlot
@@ -593,9 +593,9 @@ struct ImPlotNextPlotData
     double*     LinkedYmin[IMPLOT_Y_AXES];
     double*     LinkedYmax[IMPLOT_Y_AXES];
 
-    ImPlotNextPlotData() { Reset(); }
+    ImPlotNextPlotData() { Flush(); }
 
-    void Reset() {
+    void Flush() {
         HasXRange         = false;
         ShowDefaultTicksX = true;
         FitX              = false;
@@ -629,8 +629,8 @@ struct ImPlotNextItemData {
     bool         HasHidden;
     bool         Hidden;
     ImGuiCond    HiddenCond;
-    ImPlotNextItemData() { Reset(); }
-    void Reset() {
+    ImPlotNextItemData() { Flush(); }
+    void Flush() {
         for (int i = 0; i < 5; ++i)
             Colors[i] = IMPLOT_AUTO_COL;
         LineWeight    = MarkerSize = MarkerWeight = FillAlpha = ErrorBarSize = ErrorBarWeight = DigitalBitHeight = DigitalBitGap = IMPLOT_AUTO;
@@ -712,7 +712,7 @@ namespace ImPlot {
 // Initializes an ImPlotContext
 IMPLOT_API void Initialize(ImPlotContext* ctx);
 // Resets an ImPlot context for the next call to BeginPlot
-IMPLOT_API void Reset(ImPlotContext* ctx);
+IMPLOT_API void Flush(ImPlotContext* ctx);
 
 //-----------------------------------------------------------------------------
 // [SECTION] Plot Utils

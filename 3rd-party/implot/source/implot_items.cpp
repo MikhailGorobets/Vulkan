@@ -131,7 +131,7 @@ void BustItemCache() {
         ImPlotPlot& plot = *gp.Plots.GetByIndex(p);
         plot.ColormapIdx = 0;
         plot.Items.Clear();
-        plot.LegendData.Reset();
+        plot.LegendData.Flush();
     }
 }
 
@@ -162,7 +162,7 @@ bool BeginItem(const char* label_id, ImPlotCol recolor_from) {
     }
     if (!item->Show) {
         // reset next item data
-        gp.NextItemData.Reset();
+        gp.NextItemData.Flush();
         gp.PreviousItem = item;
         gp.CurrentItem  = NULL;
         return false;
@@ -210,7 +210,7 @@ void EndItem() {
     // pop rendering clip rect
     PopPlotClipRect();
     // reset next item data
-    gp.NextItemData.Reset();
+    gp.NextItemData.Flush();
     // set current item
     gp.PreviousItem = gp.CurrentItem;
     gp.CurrentItem  = NULL;

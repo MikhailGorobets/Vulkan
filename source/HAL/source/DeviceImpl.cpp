@@ -1,3 +1,5 @@
+#include <HAL/Device.hpp>
+
 #include "../include/AdapterImpl.hpp"
 #include "../include/InstanceImpl.hpp"
 #include "../include/DeviceImpl.hpp"
@@ -6,7 +8,7 @@
 namespace HAL {
 
     Device::Internal::Internal(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo) {
-              
+
         const char* DEVICE_EXTENSION[] = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_KHR_MAINTENANCE1_EXTENSION_NAME,
@@ -18,11 +20,10 @@ namespace HAL {
             VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
             VK_AMD_DISPLAY_NATIVE_HDR_EXTENSION_NAME
         };
-        
 
-        auto pImplAdapter  = (Adapter::Internal*)(&adapter); 
-        auto pImplInstance = (Instance::Internal*)(&instance); 
-       
+        auto pImplAdapter = (Adapter::Internal*)(&adapter);
+        auto pImplInstance = (Instance::Internal*)(&instance);
+
         std::vector<std::vector<float>> deviceQueuePriorities;
         std::vector<vk::DeviceQueueCreateInfo> deviceQueueCIs;
 
@@ -58,18 +59,17 @@ namespace HAL {
         }
 
         auto const& deviceFeatures = pImplAdapter->GetFeatures();
-        
+
         if (!deviceFeatures.Vulkan12Features.timelineSemaphore) {
             fmt::print("Error: Vulkan Device dosen't support vk::PhysicalDeviceTimelineSemaphoreFeatures \n");
         }
-        
+
         if (!deviceFeatures.Vulkan12Features.imagelessFramebuffer) {
-            fmt::print("Error: Vulkan Device dosen't support vk::PhysicalDeviceImagelessFramebufferFeatures \n");    
+            fmt::print("Error: Vulkan Device dosen't support vk::PhysicalDeviceImagelessFramebufferFeatures \n");
         }
-      
 
         vk::StructureChain<
-            vk::PhysicalDeviceFeatures2,    
+            vk::PhysicalDeviceFeatures2,
             vk::PhysicalDevice16BitStorageFeatures,
             vk::PhysicalDeviceVulkan12Features
         > enabledFeatures = {
@@ -78,23 +78,25 @@ namespace HAL {
                     .shaderInt64 = deviceFeatures.Features.shaderInt64,
                     .shaderInt16 = deviceFeatures.Features.shaderInt16,
                 }
-            },       
+            },
             deviceFeatures.Shader16BitStorageFeatures,
             vk::PhysicalDeviceVulkan12Features {
                 .shaderFloat16 = deviceFeatures.Vulkan12Features.shaderFloat16,
                 .shaderInt8 = deviceFeatures.Vulkan12Features.shaderInt8,
                 .descriptorIndexing = deviceFeatures.Vulkan12Features.descriptorIndexing,
+               
                 .shaderUniformBufferArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderUniformBufferArrayNonUniformIndexing,
                 .shaderSampledImageArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderSampledImageArrayNonUniformIndexing,
                 .shaderStorageBufferArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderStorageBufferArrayNonUniformIndexing,
                 .shaderStorageImageArrayNonUniformIndexing = deviceFeatures.Vulkan12Features.shaderStorageImageArrayNonUniformIndexing,
                 .descriptorBindingPartiallyBound = deviceFeatures.Vulkan12Features.descriptorBindingPartiallyBound,
-                .descriptorBindingVariableDescriptorCount = deviceFeatures.Vulkan12Features.descriptorBindingVariableDescriptorCount,              
+                .descriptorBindingVariableDescriptorCount = deviceFeatures.Vulkan12Features.descriptorBindingVariableDescriptorCount,
+                .runtimeDescriptorArray = deviceFeatures.Vulkan12Features.runtimeDescriptorArray,
                 .imagelessFramebuffer = deviceFeatures.Vulkan12Features.imagelessFramebuffer,
-                .timelineSemaphore = deviceFeatures.Vulkan12Features.timelineSemaphore,               
+                .timelineSemaphore = deviceFeatures.Vulkan12Features.timelineSemaphore,
             },
         };
-        
+
         std::vector<const char*> deviceExtensions;
         for (size_t index = 0; index < _countof(DEVICE_EXTENSION); index++) {
             if (pImplAdapter->IsExtensionSupported(DEVICE_EXTENSION[index])) {
@@ -113,11 +115,11 @@ namespace HAL {
         };
 
         auto const& deviceInfo = pImplAdapter->GetProperties().Properties;
-        
-        m_pDevice = pImplAdapter->GetPhysicalDevice().createDeviceUnique(deviceCI);    
-        m_PhysicalDevice = pImplAdapter->GetPhysicalDevice();
-     
-        vkx::setDebugName(*m_pDevice, pImplAdapter->GetPhysicalDevice(), fmt::format("Name: {} Type: {}", deviceInfo.deviceName, vk::to_string(deviceInfo.deviceType)));
+
+        m_pDevice = pImplAdapter->GetVkPhysicalDevice().createDeviceUnique(deviceCI);
+        m_PhysicalDevice = pImplAdapter->GetVkPhysicalDevice();
+
+        vkx::setDebugName(*m_pDevice, pImplAdapter->GetVkPhysicalDevice(), fmt::format("Name: {} Type: {}", deviceInfo.deviceName, vk::to_string(deviceInfo.deviceType)));
         vkx::setDebugName(*m_pDevice, pImplInstance->GetInstance(), fmt::format("ApiVersion: {}.{}.{}", VK_VERSION_MAJOR(deviceInfo.apiVersion), VK_VERSION_MINOR(deviceInfo.apiVersion), VK_VERSION_PATCH(deviceInfo.apiVersion)));
         vkx::setDebugName(*m_pDevice, *m_pDevice, deviceInfo.deviceName);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_pDevice);
@@ -131,10 +133,10 @@ namespace HAL {
         }
 
         if (m_QueueFamilyCompute) {
-            for (size_t index = 0; index < m_QueueFamilyCompute.value().queueCount; index++) {   
+            for (size_t index = 0; index < m_QueueFamilyCompute.value().queueCount; index++) {
                 auto queue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyCompute.value().queueIndex, index));
                 m_QueuesCompute.push_back(std::move(*reinterpret_cast<HAL::CommandQueue*>(&queue)));
-                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Compute: [{}]", index));      
+                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Compute: [{}]", index));
             }
         }
 
@@ -142,62 +144,52 @@ namespace HAL {
             for (size_t index = 0; index < m_QueueFamilyTransfer.value().queueCount; index++) {
                 auto queue = HAL::CommandQueue::Internal(m_pDevice->getQueue(m_QueueFamilyTransfer.value().queueIndex, index));
                 m_QueuesTransfer.push_back(std::move(*reinterpret_cast<HAL::CommandQueue*>(&queue)));
-                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Transfer: [{}]", index));      
+                vkx::setDebugName(*m_pDevice, queue.GetVkQueue(), fmt::format("Transfer: [{}]", index));
             }
         }
 
-        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);     
-        std::vector<uint8_t> cacheData{};
-        
-        if (pFile.get() != nullptr) {         
-            std::fseek(pFile.get(), 0, SEEK_END);
-            size_t size = std::ftell(pFile.get());
-            std::fseek(pFile.get(), 0, SEEK_SET);
-            cacheData.resize(size);       
-            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
-        }
-        
-        vk::PipelineCacheCreateInfo pipelineCacheCI = {
-            .initialDataSize = std::size(cacheData),
-            .pInitialData = std::data(cacheData)
-        };
-        
-        m_pPipelineCache = m_pDevice->createPipelineCacheUnique(pipelineCacheCI);
-        vkx::setDebugName(*m_pDevice, *m_pPipelineCache, "");
+        m_pAllocator = std::make_unique<HAL::MemoryAllocator>(instance, *reinterpret_cast<HAL::Device*>(this), HAL::AllocatorCreateInfo{});  
+        m_pPipelineCache = std::make_unique<HAL::PipelineCache>(*reinterpret_cast<HAL::Device*>(this), HAL::PipelineCacheCreateInfo{});
     }
 
+    auto Device::Internal::GetPipelineCache() const -> PipelineCache const& {
+        return *m_pPipelineCache;
+    }
 }
-  
+
 namespace HAL {
 
-    HAL::Device::Device(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo) : m_pInternal(instance, adapter, createInfo) { }
+    HAL::Device::Device(Instance const& instance, Adapter const& adapter, DeviceCreateInfo const& createInfo) : m_pInternal(instance, adapter, createInfo) {}
 
     Device::~Device() = default;
 
-    auto Device::GetTransferCommandQueue() -> TransferCommandQueue& {
+    auto Device::GetTransferCommandQueue() -> TransferCommandQueue const& {
         return m_pInternal->GetTransferCommandQueue();
     }
 
-    auto Device::GetComputeCommandQueue() -> ComputeCommandQueue& {
-       return m_pInternal->GetComputeCommandQueue();
+    auto Device::GetComputeCommandQueue() -> ComputeCommandQueue const& {
+        return m_pInternal->GetComputeCommandQueue();
     }
 
-    auto Device::GetGraphicsCommandQueue() -> GraphicsCommandQueue& {
-       return m_pInternal->GetGraphicsCommandQueue();
+    auto Device::GetGraphicsCommandQueue() -> GraphicsCommandQueue const& {
+        return m_pInternal->GetGraphicsCommandQueue();
     }
 
     auto Device::WaitIdle() -> void { m_pInternal->WaitIdle(); }
 
     auto Device::GetVkDevice() const -> vk::Device {
-        return m_pInternal->GetDevice();
+        return m_pInternal->GetVkDevice();
     }
 
     auto Device::GetVkPipelineCache() const -> vk::PipelineCache {
-        return m_pInternal->GetPipelineCache();
+        return m_pInternal->GetVkPipelineCache();
     }
 
     auto Device::GetVkPhysicalDevice() const -> vk::PhysicalDevice {
-        return m_pInternal->GetPhysicalDevice();
+        return m_pInternal->GetVkPhysicalDevice();
     }
 
+    auto Device::GetVmaAllocator() const -> vma::Allocator {
+        return m_pInternal->GetVmaAllocator();
+    }
 }

@@ -11,6 +11,7 @@ set(INCLUDE
     include/DeviceImpl.hpp
     include/FenceImpl.hpp
     include/InstanceImpl.hpp
+    include/MemoryAllocator.hpp
     include/PipelineCache.hpp
     include/PipelineImpl.hpp
     include/RenderPassImpl.hpp
@@ -43,6 +44,7 @@ set(SOURCE
     source/DeviceImpl.cpp   
     source/FenceImpl.cpp    
     source/InstanceImpl.cpp
+    source/MemoryAllocator.cpp
     source/PipelineCache.cpp
     source/PipelineImpl.cpp
     source/RenderPassImpl.cpp

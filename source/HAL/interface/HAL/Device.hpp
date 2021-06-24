@@ -3,6 +3,7 @@
 #include <HAL/InternalPtr.hpp>
 
 namespace HAL {
+
     struct DeviceCreateInfo {    
       
     };
@@ -19,11 +20,11 @@ namespace HAL {
 
         ~Device();
         
-        auto GetTransferCommandQueue() -> TransferCommandQueue&;
+        auto GetTransferCommandQueue() -> TransferCommandQueue const&;
                                      
-        auto GetComputeCommandQueue()  -> ComputeCommandQueue&;  
+        auto GetComputeCommandQueue()  -> ComputeCommandQueue const&;  
                                      
-        auto GetGraphicsCommandQueue() -> GraphicsCommandQueue&;
+        auto GetGraphicsCommandQueue() -> GraphicsCommandQueue const&;
       
         auto WaitIdle() -> void;
          
@@ -32,6 +33,8 @@ namespace HAL {
         auto GetVkPipelineCache() const -> vk::PipelineCache;
 
         auto GetVkPhysicalDevice() const -> vk::PhysicalDevice;
+
+        auto GetVmaAllocator() const -> vma::Allocator;
 
     private:     
         InternalPtr<Internal, InternalSize_Device> m_pInternal;   

@@ -1,9 +1,29 @@
 #include "..\include\PipelineCache.hpp"
 
 namespace HAL {
-    PipelineCache::PipelineCache(Device const& device): m_Device(device) {
+    PipelineCache::PipelineCache(Device const& device, PipelineCacheCreateInfo const& createInfo) {
+        
+        //TODO
+        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);
+        std::vector<uint8_t> cacheData{};
 
+        if (pFile.get() != nullptr) {
+            std::fseek(pFile.get(), 0, SEEK_END);
+            size_t size = std::ftell(pFile.get());
+            std::fseek(pFile.get(), 0, SEEK_SET);
+            cacheData.resize(size);
+            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
+        }
+
+        vk::PipelineCacheCreateInfo pipelineCacheCI = {
+            .initialDataSize = std::size(cacheData),
+            .pInitialData = std::data(cacheData)
+        };
+
+        m_pVkPipelineCache = device.GetVkDevice().createPipelineCacheUnique(pipelineCacheCI);
+        vkx::setDebugName(device.GetVkDevice(), *m_pVkPipelineCache, "");
     }
+
     auto PipelineCache::CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline {
         auto pImplPipeline = reinterpret_cast<const Pipeline*>(&pipeline);
 
@@ -15,7 +35,7 @@ namespace HAL {
         },
             .layout = pImplPipeline->GetLayout()
         };
-        auto [result, vkPipelines] = m_Device.get().GetVkDevice().createComputePipelinesUnique(m_Device.get().GetVkPipelineCache(), {pipelineCI});
+        auto [result, vkPipelines] = m_pVkPipelineCache.getOwner().createComputePipelinesUnique(m_pVkPipelineCache.get(), {pipelineCI});
         return std::move(vkPipelines.front());
     }
 
@@ -38,11 +58,11 @@ namespace HAL {
             .vertexAttributeDescriptionCount = 0
         };
 
-        vk::PipelineColorBlendAttachmentState colorBlendAttachments [] = {
+        vk::PipelineColorBlendAttachmentState colorBlendAttachments[] = {
             vk::PipelineColorBlendAttachmentState{
                 .blendEnable = false,
                 .colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-        }
+            }
         };
 
         vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
@@ -71,7 +91,7 @@ namespace HAL {
             .lineWidth = 1.0f
         };
 
-        vk::DynamicState dynamicStates [] = {
+        vk::DynamicState dynamicStates[] = {
             vk::DynamicState::eScissor,
             vk::DynamicState::eViewport
         };
@@ -96,11 +116,11 @@ namespace HAL {
             .renderPass = renderPass.GetVkRenderPass(),
         };
 
-        auto [result, vkPipelines] = m_Device.get().GetVkDevice().createGraphicsPipelinesUnique(m_Device.get().GetVkPipelineCache(), {pipelineCI});
+        auto [result, vkPipelines] = m_pVkPipelineCache.getOwner().createGraphicsPipelinesUnique(m_pVkPipelineCache.get(), {pipelineCI});
         return std::move(vkPipelines.front());
     }
 
-    auto PipelineCache::GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) -> vk::Pipeline {
+    auto PipelineCache::GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::Pipeline {
         auto pImplPipeline = reinterpret_cast<const Pipeline*>(&pipeline);
 
         ComputePipelineKey key = {.Stage = pImplPipeline->GetShaderModule(0).GetShadeModule()};
@@ -113,6 +133,4 @@ namespace HAL {
         m_ComputePipelineCache.emplace(key, std::move(vkPipelineX));
         return vkPipelineY;
     }
-
 }
-

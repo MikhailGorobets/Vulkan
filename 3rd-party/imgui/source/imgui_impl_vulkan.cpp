@@ -4,7 +4,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-static constexpr uint32_t VertexShader_SPIRV[] = {
+static constexpr uint32_t VertexShader_SPIRV [] = {
     0x07230203, 0x00010300, 0x000e0000, 0x0000002a, 0x00000000, 0x00020011, 0x00000001, 0x00020011,
     0x00000009, 0x00020011, 0x00001154, 0x0009000a, 0x5f565053, 0x474f4f47, 0x685f454c, 0x5f6c736c,
     0x636e7566, 0x6e6f6974, 0x74696c61, 0x00003179, 0x0007000a, 0x5f565053, 0x474f4f47, 0x755f454c,
@@ -53,7 +53,7 @@ static constexpr uint32_t VertexShader_SPIRV[] = {
 };
 
 
-static constexpr uint32_t FragmentShader_SPIRV[] = {
+static constexpr uint32_t FragmentShader_SPIRV [] = {
     0x07230203, 0x00010300, 0x000e0000, 0x0000003d, 0x00000000, 0x00020011, 0x00000001, 0x00020011,
     0x00000009, 0x00020011, 0x00001154, 0x0009000a, 0x5f565053, 0x474f4f47, 0x685f454c, 0x5f6c736c,
     0x636e7566, 0x6e6f6974, 0x74696c61, 0x00003179, 0x0007000a, 0x5f565053, 0x474f4f47, 0x755f454c,
@@ -123,7 +123,7 @@ struct ImGui_ImplVulkanDesc {
 
 class ImGui_ImplVulkan {
 public:
-    ImGui_ImplVulkan(ImGui_ImplVulkanDesc const& desc) : m_Desc(desc) {
+    ImGui_ImplVulkan(ImGui_ImplVulkanDesc const& desc): m_Desc(desc) {
         this->CreateDescriptorSetLayout(m_Desc.Device);
         this->CreatePipelineLayout(m_Desc.Device);
         this->CreatePipeline(m_Desc.Device, m_Desc.RenderPass);
@@ -214,8 +214,8 @@ public:
 
         if (frameBufferWidth > 0 && frameBufferHeight > 0) {
             int32_t vertexBufferOffset = 0;
-            int32_t indexBufferOffset  = 0;
-           
+            int32_t indexBufferOffset = 0;
+
             this->SetupRenderState(pImGuiDrawData, commandBuffer, frameIndex, frameBufferWidth, frameBufferHeight);
             for (int32_t i = 0; i < pImGuiDrawData->CmdListsCount; i++) {
                 const ImDrawList* pCmdList = pImGuiDrawData->CmdLists[i];
@@ -226,8 +226,7 @@ public:
                             this->SetupRenderState(pImGuiDrawData, commandBuffer, frameIndex, frameBufferWidth, frameBufferHeight);
                         else
                             pCmd->UserCallback(pCmdList, pCmd);
-                    }
-                    else {
+                    } else {
                         ImVec4 clipRect = {};
                         clipRect.x = (pCmd->ClipRect.x - pImGuiDrawData->DisplayPos.x) * pImGuiDrawData->FramebufferScale.x;
                         clipRect.y = (pCmd->ClipRect.y - pImGuiDrawData->DisplayPos.y) * pImGuiDrawData->FramebufferScale.y;
@@ -244,7 +243,7 @@ public:
                                 .offset = { static_cast<int32_t>(clipRect.x),  static_cast<int32_t>(clipRect.y) },
                                 .extent = { static_cast<uint32_t>(clipRect.z), static_cast<uint32_t>(clipRect.w) }
                             };
-                            commandBuffer.setScissor(0, { scissor });
+                            commandBuffer.setScissor(0, {scissor});
                             commandBuffer.drawIndexed(pCmd->ElemCount, 1, pCmd->IdxOffset + indexBufferOffset, pCmd->VtxOffset + vertexBufferOffset, 0);
                         }
                     }
@@ -346,17 +345,17 @@ private:
         vkx::ImageTransition imageTransitionTransfer = {
              .image = *m_pImage,
              .oldLayout = vk::ImageLayout::eUndefined,
-             .newLayout = vk::ImageLayout::eTransferDstOptimal,    
+             .newLayout = vk::ImageLayout::eTransferDstOptimal,
              .srcStages = vk::PipelineStageFlagBits::eHost,
              .dstStages = vk::PipelineStageFlagBits::eTransfer,
              .enabledShaderStages = {},
              .subresourceRange = {.aspectMask = vk::ImageAspectFlagBits::eColor,.levelCount = VK_REMAINING_MIP_LEVELS, .layerCount = VK_REMAINING_ARRAY_LAYERS }
         };
-        
+
         vkx::ImageTransition imageTransitionSampled = {
              .image = *m_pImage,
              .oldLayout = vk::ImageLayout::eTransferDstOptimal,
-             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,   
+             .newLayout = vk::ImageLayout::eShaderReadOnlyOptimal,
              .srcStages = vk::PipelineStageFlagBits::eTransfer,
              .dstStages = vk::PipelineStageFlagBits::eFragmentShader,
              .enabledShaderStages = {},
@@ -368,25 +367,25 @@ private:
             .imageExtent = {.width = static_cast<uint32_t>(textureWidth), .height = static_cast<uint32_t>(textureHeight), .depth = 1 }
         };
 
-        vk::UniqueFence pFence = device.createFenceUnique(vk::FenceCreateInfo{});  
-        pCmdBuffer->begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+        vk::UniqueFence pFence = device.createFenceUnique(vk::FenceCreateInfo{});
+        pCmdBuffer->begin(vk::CommandBufferBeginInfo{.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
         vkx::imageTransition(pCmdBuffer.get(), imageTransitionTransfer);
-        pCmdBuffer->copyBufferToImage(*pBuffer, *m_pImage, vk::ImageLayout::eTransferDstOptimal, { bufferCopyRegion });
+        pCmdBuffer->copyBufferToImage(*pBuffer, *m_pImage, vk::ImageLayout::eTransferDstOptimal, {bufferCopyRegion});
         vkx::imageTransition(pCmdBuffer.get(), imageTransitionSampled);
         pCmdBuffer->end();
 
         vk::Queue queue = device.getQueue(indexQueueFamily, 0);
-        vk::CommandBuffer cmdBuffers[] = { pCmdBuffer.get() };
-       
+        vk::CommandBuffer cmdBuffers [] = {pCmdBuffer.get()};
+
         vk::SubmitInfo submitDesc = {
             .commandBufferCount = _countof(cmdBuffers),
             .pCommandBuffers = cmdBuffers
         };
 
-        queue.submit({ submitDesc }, *pFence);
-        std::ignore = device.waitForFences({ *pFence }, true, std::numeric_limits<uint64_t>::max());
+        queue.submit({submitDesc}, *pFence);
+        std::ignore = device.waitForFences({*pFence}, true, std::numeric_limits<uint64_t>::max());
     }
-    
+
     auto CreateFontSampler(vk::Device device) -> void {
         vk::SamplerCreateInfo samplerCreateInfo = {
             .magFilter = vk::Filter::eLinear,
@@ -401,7 +400,7 @@ private:
     }
 
     auto CreateDescriptorSetLayout(vk::Device device) -> void {
-        vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
+        vk::DescriptorSetLayoutBinding descriptorSetLayoutBindings [] = {
             vk::DescriptorSetLayoutBinding{
                 .binding = 0,
                 .descriptorType = vk::DescriptorType::eSampledImage,
@@ -425,11 +424,11 @@ private:
     }
 
     auto CreatePipelineLayout(vk::Device device) -> void {
-        vk::DescriptorSetLayout descriptorSetLayouts[] = {
+        vk::DescriptorSetLayout descriptorSetLayouts [] = {
             *m_pDescriptorSetLayout
         };
 
-        vk::PushConstantRange pushConstantRange[] = {
+        vk::PushConstantRange pushConstantRange [] = {
             vk::PushConstantRange{.stageFlags = vk::ShaderStageFlagBits::eVertex, .offset = 0, .size = sizeof(ImVec4) }
         };
 
@@ -446,12 +445,12 @@ private:
 
     auto CreatePipeline(vk::Device device, vk::RenderPass renderPass) -> void {
 
-        vk::UniqueShaderModule vs = device.createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = sizeof(VertexShader_SPIRV),   .pCode = VertexShader_SPIRV});
-        vk::UniqueShaderModule fs = device.createShaderModuleUnique(vk::ShaderModuleCreateInfo{ .codeSize = sizeof(FragmentShader_SPIRV), .pCode = FragmentShader_SPIRV});
+        vk::UniqueShaderModule vs = device.createShaderModuleUnique(vk::ShaderModuleCreateInfo{.codeSize = sizeof(VertexShader_SPIRV),   .pCode = VertexShader_SPIRV});
+        vk::UniqueShaderModule fs = device.createShaderModuleUnique(vk::ShaderModuleCreateInfo{.codeSize = sizeof(FragmentShader_SPIRV), .pCode = FragmentShader_SPIRV});
         vkx::setDebugName(device, *vs, "[VS] ImGui");
         vkx::setDebugName(device, *fs, "[FS] ImGui");
 
-        vk::PipelineShaderStageCreateInfo shaderStagesCI[] = {
+        vk::PipelineShaderStageCreateInfo shaderStagesCI [] = {
             vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eVertex,   .module = *vs, .pName = "VSMain" },
             vk::PipelineShaderStageCreateInfo{.stage = vk::ShaderStageFlagBits::eFragment, .module = *fs, .pName = "PSMain" },
         };
@@ -461,11 +460,11 @@ private:
             .primitiveRestartEnable = false
         };
 
-        vk::VertexInputBindingDescription vertexInputBindings[] = {
+        vk::VertexInputBindingDescription vertexInputBindings [] = {
             vk::VertexInputBindingDescription{.binding = 0, .stride = sizeof(ImDrawVert), .inputRate = vk::VertexInputRate::eVertex }
         };
 
-        vk::VertexInputAttributeDescription vertexInputAttributes[] = {
+        vk::VertexInputAttributeDescription vertexInputAttributes [] = {
             vk::VertexInputAttributeDescription{.location = 0, .binding = 0, .format = vk::Format::eR32G32Sfloat,  .offset = offsetof(ImDrawVert, pos) },
             vk::VertexInputAttributeDescription{.location = 1, .binding = 0, .format = vk::Format::eR32G32Sfloat,  .offset = offsetof(ImDrawVert, uv)  },
             vk::VertexInputAttributeDescription{.location = 2, .binding = 0, .format = vk::Format::eR8G8B8A8Unorm, .offset = offsetof(ImDrawVert, col) }
@@ -477,7 +476,7 @@ private:
             .vertexAttributeDescriptionCount = _countof(vertexInputAttributes),
             .pVertexAttributeDescriptions = vertexInputAttributes
         };
-   
+
         vk::PipelineDepthStencilStateCreateInfo depthStencilStateCI = {
             .depthTestEnable = false,
             .depthWriteEnable = false,
@@ -489,7 +488,7 @@ private:
             .rasterizationSamples = vk::SampleCountFlagBits::e1
         };
 
-        vk::PipelineColorBlendAttachmentState colorBlendAttachmentStates[] = {
+        vk::PipelineColorBlendAttachmentState colorBlendAttachmentStates [] = {
             vk::PipelineColorBlendAttachmentState{
                 .blendEnable = true,
                 .srcColorBlendFactor = vk::BlendFactor::eSrcAlpha,
@@ -517,7 +516,7 @@ private:
             .lineWidth = 1.0f
         };
 
-        vk::DynamicState dynamicStates[] = {
+        vk::DynamicState dynamicStates [] = {
             vk::DynamicState::eScissor,
             vk::DynamicState::eViewport
         };
@@ -552,7 +551,7 @@ private:
     }
 
     auto CreateDescriptorSet(vk::Device device) -> void {
-        vk::DescriptorPoolSize descriptorPoolSize[] = {
+        vk::DescriptorPoolSize descriptorPoolSize [] = {
             vk::DescriptorPoolSize {
                 .type = vk::DescriptorType::eCombinedImageSampler,
                 .descriptorCount = 1
@@ -567,7 +566,7 @@ private:
         m_pDescriptorPool = device.createDescriptorPoolUnique(descriptorPoolCI);
         vkx::setDebugName(device, *m_pDescriptorPool, "ImGui");
 
-        vk::DescriptorSetLayout descriptorSetLayouts[] = {
+        vk::DescriptorSetLayout descriptorSetLayouts [] = {
             *m_pDescriptorSetLayout
         };
 
@@ -612,7 +611,7 @@ private:
             .pTexelBufferView = nullptr,
         };
 
-        device.updateDescriptorSets({ writeImageDescriptorSet, writeSamplerDescriptorSet }, {});
+        device.updateDescriptorSets({writeImageDescriptorSet, writeSamplerDescriptorSet}, {});
     }
 
     auto SetupRenderState(ImDrawData* pDrawData, vk::CommandBuffer commandBuffer, uint32_t frameIndex, uint32_t width, uint32_t height) -> void {
@@ -621,7 +620,7 @@ private:
 
         if (pDrawData->TotalVtxCount > 0) {
             PerFrame& frameDesc = m_PerFrame[frameIndex];
-            commandBuffer.bindVertexBuffers(0, { *frameDesc.VertexBuffer.Buffer }, { 0 });
+            commandBuffer.bindVertexBuffers(0, {*frameDesc.VertexBuffer.Buffer}, {0});
             commandBuffer.bindIndexBuffer(*frameDesc.IndexBuffer.Buffer, 0, vk::IndexType::eUint32);
         }
 
@@ -634,17 +633,17 @@ private:
                 .minDepth = 0.0f,
                 .maxDepth = 1.0f
             };
-            commandBuffer.setViewport(0, { viewport });
+            commandBuffer.setViewport(0, {viewport});
         }
 
-        {      
+        {
             struct {
                 ImVec2 scale;
                 ImVec2 translate;
             } pushContants;
 
-            pushContants.scale = { +2.0f / pDrawData->DisplaySize.x, +2.0f / pDrawData->DisplaySize.y };;
-            pushContants.translate = { -1.0f - pDrawData->DisplayPos.x * pushContants.scale.x, -1.0f - pDrawData->DisplayPos.y * pushContants.scale.y };
+            pushContants.scale = {+2.0f / pDrawData->DisplaySize.x, +2.0f / pDrawData->DisplaySize.y};;
+            pushContants.translate = {-1.0f - pDrawData->DisplayPos.x * pushContants.scale.x, -1.0f - pDrawData->DisplayPos.y * pushContants.scale.y};
             commandBuffer.pushConstants(*m_pGraphicsPipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(pushContants), &pushContants);
         }
     }
@@ -680,7 +679,7 @@ private:
 ImGui_ImplVulkan* g_pImGuiImplementVulkan;
 
 void ImGui_ImplVulkan_Init(vk::Device device, vk::PhysicalDevice adapter, vma::Allocator allocator, vk::RenderPass renderPass, std::optional<uint32_t> frameIndex) {
-    g_pImGuiImplementVulkan = new ImGui_ImplVulkan(ImGui_ImplVulkanDesc{ .Device = device, .Adapter = adapter,  .RenderPass = renderPass, .Allocator = allocator, .FrameInFlight = frameIndex.value_or(1) });
+    g_pImGuiImplementVulkan = new ImGui_ImplVulkan(ImGui_ImplVulkanDesc{.Device = device, .Adapter = adapter,  .RenderPass = renderPass, .Allocator = allocator, .FrameInFlight = frameIndex.value_or(1)});
 }
 
 void ImGui_ImplVulkan_Shutdown() {
@@ -688,6 +687,6 @@ void ImGui_ImplVulkan_Shutdown() {
 }
 
 void ImGui_ImplVulkan_NewFrame(vk::CommandBuffer commandBuffer, std::optional<uint32_t> frameIndex) {
-    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex.value_or(0));  
+    g_pImGuiImplementVulkan->DrawDataUpdate(frameIndex.value_or(0));
     g_pImGuiImplementVulkan->DrawFrame(commandBuffer, frameIndex.value_or(0));
 }

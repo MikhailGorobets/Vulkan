@@ -118,7 +118,7 @@ public:
         uint32_t MemoryIndex;
         uint32_t MemoryCount;
         HeapType MemoryType;
-        std::vector<MemoryFrame> MemoryFrames;
+        std::vector<MemoryFrame> MemoryFrames = {};
     };
 public:
     MemoryStatisticGPU(vk::PhysicalDevice physicalDevice) {
@@ -129,7 +129,8 @@ public:
                 .MemoryUsed = 0,
                 .MemoryIndex = index,
                 .MemoryCount = 0,
-                .MemoryType = m_MemoryProperty.memoryHeaps[index].flags & vk::MemoryHeapFlagBits::eDeviceLocal ? HeapType::DeviceMemory : HeapType::SystemMemory
+                .MemoryType = m_MemoryProperty.memoryHeaps[index].flags & vk::MemoryHeapFlagBits::eDeviceLocal ? HeapType::DeviceMemory : HeapType::SystemMemory,
+                .MemoryFrames = std::vector<MemoryFrame>{ {0, 0} } 
             };
             m_GpuMemory.push_back(heap);
         }
@@ -198,112 +199,64 @@ class MemoryStatisticCPU {
  
 namespace HAL {
 
-   
-
+  
     struct BufferCreateInfo {
 
     };
 
     struct TextureCreateInfo {
-        uint32_t   Width = 0;
-        uint32_t   Height = 0;
-        uint32_t   Depth = 0;
-        uint32_t   ArraySize = 1;
-        uint32_t   MipLevels = 1;
+        uint32_t   Width;
+        uint32_t   Height;
+        uint32_t   Depth;
+        uint32_t   ArraySize;
+        uint32_t   MipLevels;
         vk::Format Format;
     };
 
-    struct AllocatorCreateInfo {
-        vma::AllocatorCreateFlags  Flags = {};
-        vma::DeviceMemoryCallbacks DeviceMemoryCallbacks = {};
-        uint32_t                   FrameInUseCount = {};
-    };
 
-   
-    class MemoryAllocator {
-    public:
-        MemoryAllocator(Instance const& instance, Device const& device, AllocatorCreateInfo const& createInfo) {
-            vma::DeviceMemoryCallbacks deviceMemoryCallbacks = {
-                .pfnAllocate = createInfo.DeviceMemoryCallbacks.pfnAllocate,
-                .pfnFree     = createInfo.DeviceMemoryCallbacks.pfnFree,
-                .pUserData   = createInfo.DeviceMemoryCallbacks.pUserData
-            };
-        
-            vma::VulkanFunctions vulkanFunctions = {
-                .vkGetPhysicalDeviceProperties = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceProperties,
-                .vkGetPhysicalDeviceMemoryProperties = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceMemoryProperties,
-                .vkAllocateMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkAllocateMemory,
-                .vkFreeMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkFreeMemory,
-                .vkMapMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkMapMemory,
-                .vkUnmapMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkUnmapMemory,
-                .vkFlushMappedMemoryRanges = VULKAN_HPP_DEFAULT_DISPATCHER.vkFlushMappedMemoryRanges,
-                .vkInvalidateMappedMemoryRanges = VULKAN_HPP_DEFAULT_DISPATCHER.vkInvalidateMappedMemoryRanges,
-                .vkBindBufferMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory,
-                .vkBindImageMemory = VULKAN_HPP_DEFAULT_DISPATCHER.vkBindImageMemory,
-                .vkGetBufferMemoryRequirements = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetBufferMemoryRequirements,
-                .vkGetImageMemoryRequirements = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetImageMemoryRequirements,
-                .vkCreateBuffer = VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateBuffer,
-                .vkDestroyBuffer = VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyBuffer,
-                .vkCreateImage = VULKAN_HPP_DEFAULT_DISPATCHER.vkCreateImage,
-                .vkDestroyImage = VULKAN_HPP_DEFAULT_DISPATCHER.vkDestroyImage,
-                .vkCmdCopyBuffer = VULKAN_HPP_DEFAULT_DISPATCHER.vkCmdCopyBuffer,
-                .vkGetBufferMemoryRequirements2KHR = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetBufferMemoryRequirements2,
-                .vkGetImageMemoryRequirements2KHR = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetImageMemoryRequirements2,
-                .vkBindBufferMemory2KHR = VULKAN_HPP_DEFAULT_DISPATCHER.vkBindBufferMemory2,
-                .vkBindImageMemory2KHR = VULKAN_HPP_DEFAULT_DISPATCHER.vkBindImageMemory2,
-                .vkGetPhysicalDeviceMemoryProperties2KHR = VULKAN_HPP_DEFAULT_DISPATCHER.vkGetPhysicalDeviceMemoryProperties2
-            };
-        
-            vma::AllocatorCreateInfo allocatorCI = {
-                .flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget | vma::AllocatorCreateFlagBits::eExternallySynchronized,
-                .physicalDevice = device.GetVkPhysicalDevice(),      
-                .device = device.GetVkDevice(),    
-                .pDeviceMemoryCallbacks = &deviceMemoryCallbacks,
-                .frameInUseCount = createInfo.FrameInUseCount,
-                .pVulkanFunctions = &vulkanFunctions,
-                .instance = instance.GetVkInstance(),    
-                .vulkanApiVersion = VK_API_VERSION_1_2,         
-            };    
-            m_pAllocator = vma::createAllocatorUnique(allocatorCI); 
-            m_FrameIndex = 0;
-            m_FrameCount = createInfo.FrameInUseCount;   
-        }
-        
-        auto NextFrame() -> void {
-            m_FrameIndex = m_FrameIndex++ % m_FrameCount;
-            m_pAllocator->setCurrentFrameIndex(m_FrameIndex);
-        }        
-
-        auto GetVmaAllocator() const -> vma::Allocator { return *m_pAllocator; }        
-
-    private:
-        vma::UniqueAllocator m_pAllocator;
-        uint32_t             m_FrameIndex;
-        uint32_t             m_FrameCount;
-    };
+ 
  
     class BufferView {
+
+    private:
+        vk::BufferViewCreateInfo m_CreateInfo;
+        vk::UniqueBufferView     m_pBufferView;
     };
 
     class Buffer {
     public:
-        Buffer(MemoryAllocator const& allocator, BufferCreateInfo const& createInfo) { }
+        Buffer(BufferCreateInfo const& createInfo) { 
+    
+
+        }
  
         auto GetDefaultView() -> void;
 
     private:
-        vma::UniqueAllocation m_pAllocation;
+        BufferCreateInfo      m_CreateInfo;
         vk::UniqueBuffer      m_pBuffer;
+        vma::UniqueAllocation m_pAllocation;
+       
     };
  
     class TextureView {
+    public:
+        TextureView() {
+            
+        }
+
+    private:
+        vk::UniqueImageView m_pImageView;
+        
 
     };
 
     class Texture {
     public:
-        Texture(MemoryAllocator const& allocator, TextureCreateInfo const& createInfo) { }
+        Texture(TextureCreateInfo const& createInfo) { }
         
+        
+
         auto GetDefaultView() -> void;
 
     private:
@@ -332,7 +285,7 @@ namespace HAL {
 
         auto SetSamplers(uint32_t slot, HAL::ArrayProxy<HAL::Sampler> const& samplers) -> void {
             vk::DescriptorImageInfo samplerInfo = {
-
+               
             };
         }
 
@@ -435,7 +388,11 @@ namespace HAL {
             //  auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
         }
 
-        auto Reset() -> void {
+        auto WriteDescriptorTables(HAL::ArrayProxy<DescriptorTable> const& tables) -> void {
+                
+        }
+
+        auto Flush() -> void {
             m_pDescriptorPool.getOwner().resetDescriptorPool(m_pDescriptorPool.get());
         }
 
@@ -448,7 +405,6 @@ namespace HAL {
     };
 
 }
-
 
 
 
@@ -504,18 +460,7 @@ int main(int argc, char* argv[]) {
 
     MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
     MemoryStatisticCPU memoryCPU;
-    
-    std::unique_ptr<HAL::MemoryAllocator> pHALAllocator; {
-        HAL::AllocatorCreateInfo allocatorCI = {
-            .Flags = vma::AllocatorCreateFlagBits::eExtMemoryBudget,          
-            .DeviceMemoryCallbacks = {
-                .pfnAllocate = MemoryStatisticGPU::GPUAllocate,
-                .pfnFree     = MemoryStatisticGPU::GPUFree,
-                .pUserData   = &memoryGPU,
-            }
-        };
-        pHALAllocator = std::make_unique<HAL::MemoryAllocator>(*pHALInstance, *pHALDevice, allocatorCI);
-    }
+
 
     std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
@@ -559,7 +504,7 @@ int main(int argc, char* argv[]) {
             .ShaderModelVersion = HAL::ShaderModel::SM_6_5, 
             .IsDebugMode = true 
         };
-        pHALCompiler = std::make_unique< HAL::ShaderCompiler>(shaderCompilerCI);
+        pHALCompiler = std::make_unique<HAL::ShaderCompiler>(shaderCompilerCI);
     }
 
     std::unique_ptr<HAL::GraphicsPipeline> pHALGraphicsPipeline;
@@ -582,57 +527,7 @@ int main(int argc, char* argv[]) {
         pHALGraphicsPipeline = std::make_unique<HAL::GraphicsPipeline>(*pHALDevice, graphicsPipelineCI);
         pHALComputePipeline  = std::make_unique<HAL::ComputePipeline>(*pHALDevice, computePipelineCI);   
     }
-    
-   
-    //std::vector<std::tuple<vk::UniqueBuffer, vma::UniqueAllocation, vma::AllocationInfo>> uniformBuffers;
-    //for (size_t index = 0; index < BUFFER_COUNT; index++) {   
-    //    vk::BufferCreateInfo bufferCI = {
-    //        .size = 128 << 10,
-    //        .usage = vk::BufferUsageFlagBits::eUniformBuffer,
-    //        .sharingMode = vk::SharingMode::eExclusive,
-    //    };
-    //        
-    //    vma::AllocationCreateInfo allocationCI = {
-    //        .flags = vma::AllocationCreateFlagBits::eMapped,
-    //        .usage = vma::MemoryUsage::eCpuToGpu,
-    //    };
-    //
-    //    vma::AllocationInfo allocationInfo = {};
-    //    auto [pBuffer, pAllocation] = pAllocator.createBufferUnique(bufferCI, allocationCI, allocationInfo);
-    //
-    //    vkx::setDebugName(pDevice, *pBuffer, fmt::format("UniformBuffer[{0}]", index));
-    //    uniformBuffers.emplace_back(std::move(pBuffer), std::move(pAllocation), allocationInfo);
-    //}
-    //
-    //for (size_t index = 0; index < BUFFER_COUNT; index++) {
-    //    vk::DescriptorBufferInfo descriptorsBufferInfo[] = {
-    //        vk::DescriptorBufferInfo { .buffer = *std::get<0>(uniformBuffers[index]), .offset = 0, .range = 16 * sizeof(float) }
-    //    };
-    //
-    //    vk::WriteDescriptorSet writeDescriptorSet = {
-    //        .dstSet = *descriptorSets[index],
-    //        .dstBinding = 0,
-    //        .dstArrayElement = 0,
-    //        .descriptorCount = _countof(descriptorsBufferInfo),
-    //        .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
-    //        .pImageInfo = nullptr,
-    //        .pBufferInfo = descriptorsBufferInfo,
-    //        .pTexelBufferView = nullptr,
-    //    };
-    //    pDevice.updateDescriptorSets(writeDescriptorSet, {});
-    //}
-    
-   // std::vector<vk::UniqueQueryPool> queryPools;
-   // for (size_t index = 0; index < BUFFER_COUNT; index++) {
-   //     vk::QueryPoolCreateInfo queryPoolCI = {
-   //         .queryType = vk::QueryType::eTimestamp,
-   //         .queryCount = 2
-   //     };
-   //     auto pQueryPool = pDevice.createQueryPoolUnique(queryPoolCI);
-   //     queryPools.push_back(std::move(pQueryPool));
-   // }
-   //
-   // 
+       
     
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -644,7 +539,7 @@ int main(int argc, char* argv[]) {
     ImPlot::GetStyle().AntiAliasedLines = true;
    
     ImGui_ImplGlfw_InitForVulkan(pWindow.get(), true);
-    ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALAllocator->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass());
+    ImGui_ImplVulkan_Init(pHALDevice->GetVkDevice(), pHALDevice->GetVkPhysicalDevice(), pHALDevice->GetVmaAllocator(), pHALRenderPass->GetVkRenderPass());
 
     float CPUFrameTime = 0.0f;
     float GPUFrameTime = 0.0f;
@@ -652,7 +547,7 @@ int main(int argc, char* argv[]) {
     struct WindowUserData {
         HAL::CommandQueue* pCommandQueue;
         HAL::SwapChain*    pSwapChain;
-    } GLFWUserData = { pHALComputeCommandQueue, pHALSwapChain.get() };
+    } GLFWUserData = { (HAL::CommandQueue*)pHALComputeCommandQueue, pHALSwapChain.get() };
 
    
     glfwSetWindowUserPointer(pWindow.get(), &GLFWUserData);
@@ -802,7 +697,7 @@ int main(int argc, char* argv[]) {
             ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());               
             pHALCommandList->EndRenderPass();
 
-            // pHALCommandList->SetComputePipeline(pHALPipeline);
+            pHALCommandList->SetComputePipeline(*pHALComputePipeline, {});
             // pHALCommandList->SetDescriptorTable(0, pHALDescriptorTable);    
             // pHALCommandList->Dispath(64, 64, 1);
 
@@ -823,9 +718,7 @@ int main(int argc, char* argv[]) {
 
         //------------------------------//
 
-        //if (auto result = pDevice.getQueryPoolResults<uint64_t>(*pQueryPool, 0, 2, 2 * sizeof(uint64_t), sizeof(uint64_t), vk::QueryResultFlagBits::e64); result.result == vk::Result::eSuccess) 
-        //    GPUFrameTime = pHALDevice->GetVkPhysicalDevice().getProperties().limits.timestampPeriod * (result.value[1] - result.value[0]) / 1E6f;
-        //
+
         auto const timestampT1 = std::chrono::high_resolution_clock::now();
         CPUFrameTime = std::chrono::duration<float, std::milli>(timestampT1 - timestampT0).count();
         GPUFrameTime = 0.0f;

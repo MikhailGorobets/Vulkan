@@ -37,7 +37,7 @@ namespace HAL {
         auto GetResources() const -> StagePipelineResources const& { return m_DescriptorsSets; }
 
     private:
-        auto GetShaderStage(spv::ExecutionModel executionModel) const-> std::optional<vk::ShaderStageFlagBits>;
+        auto GetShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits>;
 
         auto ReflectPipelineResources(spirv_cross::CompilerHLSL const& compiler) -> StagePipelineResources;
 

@@ -8,23 +8,23 @@ namespace HAL {
         m_EntryPoint = compiler.get_entry_points_and_stages()[0].name;
         m_ShaderStage = *GetShaderStage(compiler.get_execution_model());
         m_DescriptorsSets = this->ReflectPipelineResources(compiler);
-        m_pShaderModule = device.GetVkDevice().createShaderModuleUnique({ .codeSize = static_cast<uint32_t>(code.Size), .pCode = reinterpret_cast<uint32_t*>(code.pData) });
+        m_pShaderModule = device.GetVkDevice().createShaderModuleUnique({.codeSize = static_cast<uint32_t>(code.Size), .pCode = reinterpret_cast<uint32_t*>(code.pData)});
     }
 
     auto ShaderModule::GetShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits> {
         switch (executionModel) {
-        case spv::ExecutionModelVertex:
-            return vk::ShaderStageFlagBits::eVertex;
-        case spv::ExecutionModelTessellationControl:
-            return vk::ShaderStageFlagBits::eTessellationControl;
-        case spv::ExecutionModelTessellationEvaluation:
-            return vk::ShaderStageFlagBits::eTessellationEvaluation;
-        case spv::ExecutionModelGeometry:
-            return vk::ShaderStageFlagBits::eGeometry;
-        case spv::ExecutionModelFragment:
-            return vk::ShaderStageFlagBits::eFragment;
-        case spv::ExecutionModelGLCompute:
-            return vk::ShaderStageFlagBits::eCompute;
+            case spv::ExecutionModelVertex:
+                return vk::ShaderStageFlagBits::eVertex;
+            case spv::ExecutionModelTessellationControl:
+                return vk::ShaderStageFlagBits::eTessellationControl;
+            case spv::ExecutionModelTessellationEvaluation:
+                return vk::ShaderStageFlagBits::eTessellationEvaluation;
+            case spv::ExecutionModelGeometry:
+                return vk::ShaderStageFlagBits::eGeometry;
+            case spv::ExecutionModelFragment:
+                return vk::ShaderStageFlagBits::eFragment;
+            case spv::ExecutionModelGLCompute:
+                return vk::ShaderStageFlagBits::eCompute;
         }
         return {};
     }
@@ -52,5 +52,3 @@ namespace HAL {
         return pipelineResources;
     }
 }
-
-

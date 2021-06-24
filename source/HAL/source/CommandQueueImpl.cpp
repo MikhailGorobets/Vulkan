@@ -8,26 +8,26 @@
 namespace HAL {
     CommandQueue::Internal::Internal(vk::Queue queue) : m_Queue(queue) {}
 
-    auto CommandQueue::Internal::Signal(Fence const& fence, std::optional<uint64_t> value) const -> void { 
-       vk::Semaphore signalSemaphores[] = { fence.GetVkSemaphore() };
-       uint64_t signalSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) }; 
+    auto CommandQueue::Internal::Signal(Fence const& fence, std::optional<uint64_t> value) const -> void {
+        vk::Semaphore signalSemaphores[] = {fence.GetVkSemaphore()};
+        uint64_t signalSemaphoreValues[] = {value.value_or(fence.GetExpectedValue())};
 
-       vk::TimelineSemaphoreSubmitInfo timelineInfo = {
-           .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
-           .pSignalSemaphoreValues = signalSemaphoreValues
-       };
-       vk::SubmitInfo submitInfo = {
-           .pNext = &timelineInfo,
-           .signalSemaphoreCount  = _countof(signalSemaphores),
-           .pSignalSemaphores = signalSemaphores
-       };
-       m_Queue.submit({submitInfo}, {});
+        vk::TimelineSemaphoreSubmitInfo timelineInfo = {
+            .signalSemaphoreValueCount = _countof(signalSemaphoreValues),
+            .pSignalSemaphoreValues = signalSemaphoreValues
+        };
+        vk::SubmitInfo submitInfo = {
+            .pNext = &timelineInfo,
+            .signalSemaphoreCount = _countof(signalSemaphores),
+            .pSignalSemaphores = signalSemaphores
+        };
+        m_Queue.submit({submitInfo}, {});
     }
 
     auto CommandQueue::Internal::Wait(Fence const& fence, std::optional<uint64_t> value) const -> void {
-        vk::Semaphore pWaitSemaphores[] = { fence.GetVkSemaphore() };
-        uint64_t pWaitSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) };
-        vk::PipelineStageFlags pWaitStages[] = { vk::PipelineStageFlagBits::eAllCommands };
+        vk::Semaphore pWaitSemaphores[] = {fence.GetVkSemaphore()};
+        uint64_t pWaitSemaphoreValues[] = {value.value_or(fence.GetExpectedValue())};
+        vk::PipelineStageFlags pWaitStages[] = {vk::PipelineStageFlagBits::eAllCommands};
 
         vk::TimelineSemaphoreSubmitInfo timelineInfo = {
             .waitSemaphoreValueCount = 1,
@@ -39,22 +39,22 @@ namespace HAL {
             .pWaitSemaphores = pWaitSemaphores,
             .pWaitDstStageMask = pWaitStages
         };
-        m_Queue.submit({ submitInfo }, {});    
+        m_Queue.submit({submitInfo}, {});
     }
 
     auto CommandQueue::Internal::NextImage(SwapChain const& swapChain, Fence const& fence, std::optional<uint64_t> value) const -> uint32_t {
-        auto pSwapChain = (SwapChain::Internal*)(&swapChain);           
+        auto pSwapChain = (SwapChain::Internal*)(&swapChain);
         pSwapChain->Acquire();
 
-        auto [result, frameID] = pSwapChain->GetDevice().acquireNextImageKHR(pSwapChain->GetSwapChain(), std::numeric_limits<uint64_t>::max(), pSwapChain->GetSemaphoreAvailable(), nullptr);
+        auto [result, frameID] = pSwapChain->GetVkDevice().acquireNextImageKHR(pSwapChain->GetSwapChain(), std::numeric_limits<uint64_t>::max(), pSwapChain->GetSemaphoreAvailable(), nullptr);
         assert(result == vk::Result::eSuccess || result == vk::Result::eSuboptimalKHR);
-           
-        vk::Semaphore pWaitSemaphores[] = { pSwapChain->GetSemaphoreAvailable() };       
-        vk::Semaphore pSignalSemaphores[] = { fence.GetVkSemaphore() };
 
-        uint64_t pSignalSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) }; 
-      
-        vk::PipelineStageFlags pStageMask[] = { vk::PipelineStageFlagBits::eTransfer };
+        vk::Semaphore pWaitSemaphores[] = {pSwapChain->GetSemaphoreAvailable()};
+        vk::Semaphore pSignalSemaphores[] = {fence.GetVkSemaphore()};
+
+        uint64_t pSignalSemaphoreValues[] = {value.value_or(fence.GetExpectedValue())};
+
+        vk::PipelineStageFlags pStageMask[] = {vk::PipelineStageFlagBits::eTransfer};
 
         vk::TimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {
             .signalSemaphoreValueCount = _countof(pSignalSemaphoreValues),
@@ -67,40 +67,40 @@ namespace HAL {
             .pWaitSemaphores = pWaitSemaphores,
             .pWaitDstStageMask = pStageMask,
             .signalSemaphoreCount = _countof(pSignalSemaphores),
-            .pSignalSemaphores = pSignalSemaphores         
-        };        
-        m_Queue.submit(submitInfo, {});  
+            .pSignalSemaphores = pSignalSemaphores
+        };
+        m_Queue.submit(submitInfo, {});
         return frameID;
     }
 
     auto CommandQueue::Internal::Present(SwapChain const& swapChain, uint32_t frameID, Fence const& fence, std::optional<uint64_t> value) const -> void {
         auto pSwapChain = (SwapChain::Internal*)(&swapChain);
 
-        uint64_t pWaitSemaphoreValues[] = { value.value_or(fence.GetExpectedValue()) };
+        uint64_t pWaitSemaphoreValues[] = {value.value_or(fence.GetExpectedValue())};
 
-        vk::Semaphore pSignalSemaphores[] = { pSwapChain->GetSemaphoreFinished() }; 
-        vk::Semaphore pWaitSemahores[] = { fence.GetVkSemaphore() };
-        
-        vk::PipelineStageFlags pStageMask[] = { vk::PipelineStageFlagBits::eTransfer };
-        
+        vk::Semaphore pSignalSemaphores[] = {pSwapChain->GetSemaphoreFinished()};
+        vk::Semaphore pWaitSemahores[] = {fence.GetVkSemaphore()};
+
+        vk::PipelineStageFlags pStageMask[] = {vk::PipelineStageFlagBits::eTransfer};
+
         vk::TimelineSemaphoreSubmitInfo timelineSemaphoreSubmitInfo = {
             .waitSemaphoreValueCount = _countof(pWaitSemaphoreValues),
-            .pWaitSemaphoreValues = pWaitSemaphoreValues     
+            .pWaitSemaphoreValues = pWaitSemaphoreValues
         };
 
         vk::SubmitInfo submitInfo = {
             .pNext = &timelineSemaphoreSubmitInfo,
-            .waitSemaphoreCount =  _countof(pWaitSemahores),
+            .waitSemaphoreCount = _countof(pWaitSemahores),
             .pWaitSemaphores = pWaitSemahores,
             .pWaitDstStageMask = pStageMask,
             .signalSemaphoreCount = _countof(pSignalSemaphores),
-            .pSignalSemaphores = pSignalSemaphores,           
-        };            
+            .pSignalSemaphores = pSignalSemaphores,
+        };
 
         m_Queue.submit(submitInfo, {});
-    
-        vk::SwapchainKHR pSwapChains[] = { pSwapChain->GetSwapChain() };
-        
+
+        vk::SwapchainKHR pSwapChains[] = {pSwapChain->GetSwapChain()};
+
         vk::PresentInfoKHR presentInfo = {
             .waitSemaphoreCount = _countof(pSignalSemaphores),
             .pWaitSemaphores = pSignalSemaphores,
@@ -115,16 +115,16 @@ namespace HAL {
     }
 
     auto CommandQueue::Internal::WaitIdle() const -> void {
-        m_Queue.waitIdle();        
+        m_Queue.waitIdle();
     }
 
     auto CommandQueue::Internal::GetVkQueue() const -> vk::Queue {
         return m_Queue;
-    }   
+    }
 }
 
 namespace HAL {
-    CommandQueue::CommandQueue(CommandQueue&& rhs) noexcept : m_pInternal(std::move(rhs.m_pInternal)) {} 
+    CommandQueue::CommandQueue(CommandQueue&& rhs) noexcept : m_pInternal(std::move(rhs.m_pInternal)) {}
 
     CommandQueue& CommandQueue::operator=(CommandQueue&& rhs) noexcept { m_pInternal = std::move(rhs.m_pInternal); return *this; }
 
@@ -152,15 +152,15 @@ namespace HAL {
         return m_pInternal->GetVkQueue();
     }
 
-    auto TransferCommandQueue::ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void {   
-         m_pInternal->ExecuteCommandList(cmdLists);
+    auto TransferCommandQueue::ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList(cmdLists);
     }
 
-    auto ComputeCommandQueue::ExecuteCommandList(ArrayProxy<ComputeCommandList> const & cmdLists) const -> void {
-         m_pInternal->ExecuteCommandList(cmdLists);
+    auto ComputeCommandQueue::ExecuteCommandList(ArrayProxy<ComputeCommandList> const& cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList(cmdLists);
     }
-    
-    auto GraphicsCommandQueue::ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const & cmdLists) const -> void {  
+
+    auto GraphicsCommandQueue::ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const& cmdLists) const -> void {
         m_pInternal->ExecuteCommandList(cmdLists);
     }
 }

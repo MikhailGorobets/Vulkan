@@ -7034,7 +7034,7 @@ public:
 
     VkResult CreateMinBlocks();
 
-    VmaAllocator GetAllocator() const { return m_hAllocator; }
+    VmaAllocator GetVmaAllocator() const { return m_hAllocator; }
     VmaPool GetParentPool() const { return m_hParentPool; }
     bool IsCustomPool() const { return m_hParentPool != VMA_NULL; }
     uint32_t GetMemoryTypeIndex() const { return m_MemoryTypeIndex; }
@@ -7891,7 +7891,7 @@ public:
         return m_VulkanFunctions;
     }
 
-    VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
+    VkPhysicalDevice GetVkPhysicalDevice() const { return m_PhysicalDevice; }
 
     VkDeviceSize GetBufferImageGranularity() const
     {
@@ -12574,7 +12574,7 @@ VmaPool_T::~VmaPool_T()
 
 void VmaPool_T::SetName(const char* pName)
 {
-    const VkAllocationCallbacks* allocs = m_BlockVector.GetAllocator()->GetAllocationCallbacks();
+    const VkAllocationCallbacks* allocs = m_BlockVector.GetVmaAllocator()->GetAllocationCallbacks();
     VmaFreeString(allocs, m_Name);
 
     if(pName != VMA_NULL)
@@ -17727,7 +17727,7 @@ VMA_CALL_PRE void VMA_CALL_POST vmaGetAllocatorInfo(VmaAllocator allocator, VmaA
 {
     VMA_ASSERT(allocator && pAllocatorInfo);
     pAllocatorInfo->instance = allocator->m_hInstance;
-    pAllocatorInfo->physicalDevice = allocator->GetPhysicalDevice();
+    pAllocatorInfo->physicalDevice = allocator->GetVkPhysicalDevice();
     pAllocatorInfo->device = allocator->m_hDevice;
 }
 
