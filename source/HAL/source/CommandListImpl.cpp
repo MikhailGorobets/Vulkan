@@ -37,11 +37,10 @@ namespace HAL {
         auto pImplDevice = reinterpret_cast<Device::Internal*>(m_pDevice);
         m_pCommandBuffer->bindPipeline(vk::PipelineBindPoint::eCompute, pImplDevice->GetPipelineCache().GetComputePipeline(pipeline, state));
     }
-
-  
 }
 
 namespace HAL {
+
     CommandList::CommandList(CommandAllocator const& allocator) : m_pInternal(allocator) {}
 
     CommandList::CommandList(CommandList&& rhs) noexcept : m_pInternal(std::move(rhs.m_pInternal)) {}

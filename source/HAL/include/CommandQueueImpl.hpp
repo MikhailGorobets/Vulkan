@@ -22,9 +22,12 @@ namespace HAL {
         auto WaitIdle() const -> void;
 
         template<typename T>
-        auto ExecuteCommandList(ArrayProxy<T> const& cmdLists) const -> void;
+        auto ExecuteCommandList(ArraySpan<T> cmdLists) const -> void;
 
-        auto GetVkQueue() const->vk::Queue;
+        template<typename T>
+        auto ExecuteCommandList(ArrayView<T> cmdLists) const -> void;
+      
+        auto GetVkQueue() const -> vk::Queue;
 
     private:
         vk::Queue m_Queue = {};
@@ -34,7 +37,7 @@ namespace HAL {
 namespace HAL {
 
     template<typename T>
-    inline auto CommandQueue::Internal::ExecuteCommandList(ArrayProxy<T> const& cmdLists) const -> void {
+    inline auto CommandQueue::Internal::ExecuteCommandList(ArraySpan<T> cmdLists) const -> void {
         static_assert(std::is_base_of<CommandList, T>::value);
 
         std::vector<vk::CommandBuffer> commandBuffers(cmdLists.size());
@@ -47,5 +50,11 @@ namespace HAL {
            .pCommandBuffers = std::data(commandBuffers),
         };
         m_Queue.submit(submitInfo, {});
+    }
+    
+    template<typename T>
+    inline auto CommandQueue::Internal::ExecuteCommandList(ArrayView<T> cmdLists) const -> void {
+        static_assert(std::is_base_of<CommandList, T>::value);       
+        ExecuteCommandList<T>(ArraySpan<T>{cmdLists.begin(), cmdLists.size()});
     }
 }

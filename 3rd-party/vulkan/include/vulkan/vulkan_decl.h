@@ -110,23 +110,23 @@ namespace vkx {
 
 namespace vkx {
 
-    inline [[nodiscard]] auto isInstanceLayerAvailable(std::vector<vk::LayerProperties> const& layers, const char* name) -> bool {
+    inline [[nodiscard]] auto isInstanceLayerAvailable(std::vector<vk::LayerProperties> const& layers, std::string_view name) -> bool {
         for (auto const& e : layers)
-            if (std::strcmp(e.layerName, name) == 0)
+            if (e.layerName == name)
                 return true;
         return false;
     }
 
-    inline [[nodiscard]] auto isInstanceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, const char* name) -> bool {
+    inline [[nodiscard]] auto isInstanceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, std::string_view name) -> bool {
         for (auto const& e : extensions)
-            if (std::strcmp(e.extensionName, name) == 0)
+            if (e.extensionName == name)
                 return true;
         return false;
     }
 
-    inline [[nodiscard]] auto isDeviceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, const char* name) -> bool {
+    inline [[nodiscard]] auto isDeviceExtensionAvailable(std::vector<vk::ExtensionProperties> const& extensions, std::string_view name) -> bool {
         for (auto const& e : extensions)
-            if (std::strcmp(e.extensionName, name) == 0)
+            if (e.extensionName == name)
                 return true;
         return false;
     }

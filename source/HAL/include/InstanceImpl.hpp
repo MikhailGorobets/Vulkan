@@ -9,9 +9,9 @@ namespace HAL {
     public:
         Internal(InstanceCreateInfo const& createInfo);
 
-        auto GetInstance() const -> vk::Instance { return *m_pInstance; }
+        auto GetVkInstance() const -> vk::Instance { return *m_pInstance; }
 
-        auto GetVersion() const -> uint32_t { return m_ApiVersion; }
+        auto GetVkVersion() const -> uint32_t { return m_ApiVersion; }
 
         auto GetAdapters() const -> std::vector<HAL::Adapter> const& { return m_Adapters; }
 

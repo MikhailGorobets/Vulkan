@@ -67,7 +67,7 @@ namespace HAL {
         return pipelineResources;
     }
 
-    Pipeline::Pipeline(Device const& device, HAL::ArrayProxy<ShaderBytecode> const& byteCodes, vk::PipelineBindPoint bindPoint) {
+    Pipeline::Pipeline(Device const& device, HAL::ArrayView<ShaderBytecode> const& byteCodes, vk::PipelineBindPoint bindPoint) {
         for (auto const& code : byteCodes)
             m_ShaderModules.push_back(ShaderModule(device, code));
 

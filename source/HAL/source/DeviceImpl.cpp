@@ -120,7 +120,7 @@ namespace HAL {
         m_PhysicalDevice = pImplAdapter->GetVkPhysicalDevice();
 
         vkx::setDebugName(*m_pDevice, pImplAdapter->GetVkPhysicalDevice(), fmt::format("Name: {} Type: {}", deviceInfo.deviceName, vk::to_string(deviceInfo.deviceType)));
-        vkx::setDebugName(*m_pDevice, pImplInstance->GetInstance(), fmt::format("ApiVersion: {}.{}.{}", VK_VERSION_MAJOR(deviceInfo.apiVersion), VK_VERSION_MINOR(deviceInfo.apiVersion), VK_VERSION_PATCH(deviceInfo.apiVersion)));
+        vkx::setDebugName(*m_pDevice, pImplInstance->GetVkInstance(), fmt::format("ApiVersion: {}.{}.{}", VK_VERSION_MAJOR(deviceInfo.apiVersion), VK_VERSION_MINOR(deviceInfo.apiVersion), VK_VERSION_PATCH(deviceInfo.apiVersion)));
         vkx::setDebugName(*m_pDevice, *m_pDevice, deviceInfo.deviceName);
         VULKAN_HPP_DEFAULT_DISPATCHER.init(*m_pDevice);
 

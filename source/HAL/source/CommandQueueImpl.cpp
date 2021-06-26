@@ -152,15 +152,27 @@ namespace HAL {
         return m_pInternal->GetVkQueue();
     }
 
-    auto TransferCommandQueue::ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void {
-        m_pInternal->ExecuteCommandList(cmdLists);
+    auto TransferCommandQueue::ExecuteCommandList(ArraySpan<TransferCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<TransferCommandList>(cmdLists);
     }
 
-    auto ComputeCommandQueue::ExecuteCommandList(ArrayProxy<ComputeCommandList> const& cmdLists) const -> void {
-        m_pInternal->ExecuteCommandList(cmdLists);
+    auto TransferCommandQueue::ExecuteCommandList(ArrayView<TransferCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<TransferCommandList>(cmdLists);
     }
 
-    auto GraphicsCommandQueue::ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const& cmdLists) const -> void {
-        m_pInternal->ExecuteCommandList(cmdLists);
+    auto ComputeCommandQueue::ExecuteCommandList(ArraySpan<ComputeCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<ComputeCommandList>(cmdLists);
+    }
+  
+    auto ComputeCommandQueue::ExecuteCommandList(ArrayView<ComputeCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<ComputeCommandList>(cmdLists);
+    }
+
+    auto GraphicsCommandQueue::ExecuteCommandLists(ArraySpan<GraphicsCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<GraphicsCommandList>(cmdLists);
+    }
+
+    auto GraphicsCommandQueue::ExecuteCommandLists(ArrayView<GraphicsCommandList> cmdLists) const -> void {
+        m_pInternal->ExecuteCommandList<GraphicsCommandList>(cmdLists);
     }
 }

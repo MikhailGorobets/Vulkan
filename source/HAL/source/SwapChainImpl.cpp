@@ -34,7 +34,7 @@ namespace HAL {
 
         auto pDeviceImpl = reinterpret_cast<const Device::Internal*>(&device);
 
-        m_pSurface = reinterpret_cast<const Instance::Internal*>(&instance)->GetInstance().createWin32SurfaceKHRUnique(surfaceCI);
+        m_pSurface = reinterpret_cast<const Instance::Internal*>(&instance)->GetVkInstance().createWin32SurfaceKHRUnique(surfaceCI);
         vkx::setDebugName(pDeviceImpl->GetVkDevice(), *m_pSurface, "Win32SurfaceKHR");
 
         if (m_PhysicalDevice.getSurfaceSupportKHR(pDeviceImpl->GetGraphicsQueueFamilyIndex(), *m_pSurface))

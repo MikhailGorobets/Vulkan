@@ -9,7 +9,7 @@ namespace HAL {
 
     class Pipeline {
     public:
-        Pipeline(Device const& device, HAL::ArrayProxy<ShaderBytecode> const& byteCodes, vk::PipelineBindPoint bindPoint);
+        Pipeline(Device const& device, HAL::ArrayView<ShaderBytecode> const& byteCodes, vk::PipelineBindPoint bindPoint);
 
         auto GetLayout() const -> vk::PipelineLayout { return *m_pPipelineLayout; }
 

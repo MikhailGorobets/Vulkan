@@ -30,16 +30,22 @@ namespace HAL {
     
     class TransferCommandQueue: public CommandQueue {
     public:
-        auto ExecuteCommandList(ArrayProxy<TransferCommandList> const& cmdLists) const -> void;
+        auto ExecuteCommandList(ArraySpan<TransferCommandList> cmdLists) const -> void;
+    
+        auto ExecuteCommandList(ArrayView<TransferCommandList> cmdLists) const -> void;
     };
     
     class ComputeCommandQueue: public TransferCommandQueue {
     public:
-        auto ExecuteCommandList(ArrayProxy<ComputeCommandList> const& cmdLists) const -> void;
+        auto ExecuteCommandList(ArraySpan<ComputeCommandList> cmdLists) const -> void;
+    
+        auto ExecuteCommandList(ArrayView<ComputeCommandList> cmdLists) const -> void;
     };
 
     class GraphicsCommandQueue: public ComputeCommandQueue {
     public:
-        auto ExecuteCommandLists(ArrayProxy<GraphicsCommandList> const& cmdLists) const -> void;
+        auto ExecuteCommandLists(ArraySpan<GraphicsCommandList> cmdLists) const -> void;
+
+        auto ExecuteCommandLists(ArrayView<GraphicsCommandList> cmdLists) const -> void;
     };
 }

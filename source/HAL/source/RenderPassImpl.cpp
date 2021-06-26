@@ -25,21 +25,21 @@ namespace HAL {
         uint32_t layerCount = 0;
 
         for (size_t index = 0; index < std::size(m_AttachmentsFormat); index++) {
-            width = std::max(width, beginInfo.pAttachments[index].Width);
-            height = std::max(height, beginInfo.pAttachments[index].Height);
-            layerCount = std::max(layerCount, beginInfo.pAttachments[index].LayerCount);
+            width = std::max(width, beginInfo.Attachments[index].Width);
+            height = std::max(height, beginInfo.Attachments[index].Height);
+            layerCount = std::max(layerCount, beginInfo.Attachments[index].LayerCount);
 
             vk::FramebufferAttachmentImageInfo framebufferAttachmentImageInfo = {
-                .usage = beginInfo.pAttachments[index].ImageUsage,
-                .width = beginInfo.pAttachments[index].Width,
-                .height = beginInfo.pAttachments[index].Height,
-                .layerCount = beginInfo.pAttachments[index].LayerCount,
+                .usage = beginInfo.Attachments[index].ImageUsage,
+                .width = beginInfo.Attachments[index].Width,
+                .height = beginInfo.Attachments[index].Height,
+                .layerCount = beginInfo.Attachments[index].LayerCount,
                 .viewFormatCount = 1,
                 .pViewFormats = &m_AttachmentsFormat[index]
             };
             frameBufferAttanchments.push_back(framebufferAttachmentImageInfo);
-            frameBufferImageViews.push_back(beginInfo.pAttachments[index].ImageView);
-            frameBufferClearValues.push_back(beginInfo.pAttachments[index].ClearValue);
+            frameBufferImageViews.push_back(beginInfo.Attachments[index].ImageView);
+            frameBufferClearValues.push_back(beginInfo.Attachments[index].ClearValue);
         }
 
         FrameBufferCacheKey key = {std::move(frameBufferAttanchments), width, height, layerCount};

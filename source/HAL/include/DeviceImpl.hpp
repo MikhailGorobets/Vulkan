@@ -44,7 +44,6 @@ namespace HAL {
         vk::UniqueDevice        m_pDevice = {};  
         vk::PhysicalDevice      m_PhysicalDevice = {};
 
-        
         std::vector<HAL::CommandQueue> m_QueuesGraphics = {};
         std::vector<HAL::CommandQueue> m_QueuesCompute = {};
         std::vector<HAL::CommandQueue> m_QueuesTransfer = {};

@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <vector>
 #include <string>
-
+#include <span>
 
 //TODO only C-API
 namespace vk {
@@ -31,23 +31,18 @@ namespace vma {
 }
 
 
-namespace std {
-    template<typename T> using observer_ptr = T*; 
-}
-
 namespace HAL {
-    struct NonCopyable { 
+
+    template<typename T> using ArraySpan = std::span<const std::reference_wrapper<const T>>;
+
+    template<typename T> using ArrayView = std::initializer_list<std::reference_wrapper<const T>>;
+
+    struct NonCopyable {
         NonCopyable() = default;
         NonCopyable(NonCopyable const&) = delete;
         NonCopyable& operator=(NonCopyable const&) = delete;
     };
-}
 
-namespace HAL {
-    template<typename T> using ArrayProxy = std::initializer_list<std::reference_wrapper<const T>>; 
-}
-
-namespace HAL {
     template<typename T, size_t Size, size_t Alignment = 8>
     class InternalPtr {
     private:

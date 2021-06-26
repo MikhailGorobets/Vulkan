@@ -6,9 +6,8 @@
 namespace HAL {
 
     struct RenderPassBeginInfo {
-        const RenderPass* pRenderPass = {};
-        const RenderPassAttachmentInfo* pAttachments = {};
-        uint32_t                        AttachmentCount = {};
+        const RenderPass*                   pRenderPass = {};
+        std::span<RenderPassAttachmentInfo> Attachments = {};
     };
 
     class CommandList: NonCopyable {

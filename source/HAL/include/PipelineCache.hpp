@@ -64,11 +64,6 @@ namespace HAL {
         auto Flush() -> void;
 
     private:
-        auto CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline;
-
-        auto CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline;
-
-    private:
         vk::UniquePipelineCache m_pVkPipelineCache = {};
         mutable PipelinesCache<GraphicsPipelineKey, GraphicsPipelineKeyHash> m_GraphicsPipelineCache;
         mutable PipelinesCache<ComputePipelineKey, ComputePipelineKeyyHash>  m_ComputePipelineCache;

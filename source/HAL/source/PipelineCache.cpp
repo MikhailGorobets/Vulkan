@@ -1,30 +1,8 @@
 #include "..\include\PipelineCache.hpp"
 
 namespace HAL {
-    PipelineCache::PipelineCache(Device const& device, PipelineCacheCreateInfo const& createInfo) {
-        
-        //TODO
-        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);
-        std::vector<uint8_t> cacheData{};
 
-        if (pFile.get() != nullptr) {
-            std::fseek(pFile.get(), 0, SEEK_END);
-            size_t size = std::ftell(pFile.get());
-            std::fseek(pFile.get(), 0, SEEK_SET);
-            cacheData.resize(size);
-            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
-        }
-
-        vk::PipelineCacheCreateInfo pipelineCacheCI = {
-            .initialDataSize = std::size(cacheData),
-            .pInitialData = std::data(cacheData)
-        };
-
-        m_pVkPipelineCache = device.GetVkDevice().createPipelineCacheUnique(pipelineCacheCI);
-        vkx::setDebugName(device.GetVkDevice(), *m_pVkPipelineCache, "");
-    }
-
-    auto PipelineCache::CreateComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::UniquePipeline {
+    static auto CreateComputePipeline(vk::Device device, vk::PipelineCache cache, ComputePipeline const& pipeline, ComputeState const& state) -> vk::UniquePipeline {
         auto pImplPipeline = reinterpret_cast<const Pipeline*>(&pipeline);
 
         vk::ComputePipelineCreateInfo pipelineCI = {
@@ -35,11 +13,11 @@ namespace HAL {
         },
             .layout = pImplPipeline->GetLayout()
         };
-        auto [result, vkPipelines] = m_pVkPipelineCache.getOwner().createComputePipelinesUnique(m_pVkPipelineCache.get(), {pipelineCI});
+        auto [result, vkPipelines] = device.createComputePipelinesUnique(cache, {pipelineCI});
         return std::move(vkPipelines.front());
     }
 
-    auto PipelineCache::CreateGraphicsPipeline(GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline {
+    static auto CreateGraphicsPipeline(vk::Device device, vk::PipelineCache cache, GraphicsPipeline const& pipeline, RenderPass const& renderPass, GraphicsState const& state) -> vk::UniquePipeline {
 
         auto pImplPipeline = reinterpret_cast<const Pipeline*>(&pipeline);
 
@@ -116,21 +94,46 @@ namespace HAL {
             .renderPass = renderPass.GetVkRenderPass(),
         };
 
-        auto [result, vkPipelines] = m_pVkPipelineCache.getOwner().createGraphicsPipelinesUnique(m_pVkPipelineCache.get(), {pipelineCI});
+        auto [result, vkPipelines] = device.createGraphicsPipelinesUnique(cache, {pipelineCI});
         return std::move(vkPipelines.front());
+    }
+
+    PipelineCache::PipelineCache(Device const& device, PipelineCacheCreateInfo const& createInfo) {
+        
+        //TODO
+        std::unique_ptr<FILE, decltype(&std::fclose)> pFile(std::fopen("PipelineCache", "rb"), std::fclose);
+        std::vector<uint8_t> cacheData{};
+
+        if (pFile.get() != nullptr) {
+            std::fseek(pFile.get(), 0, SEEK_END);
+            size_t size = std::ftell(pFile.get());
+            std::fseek(pFile.get(), 0, SEEK_SET);
+            cacheData.resize(size);
+            std::fread(std::data(cacheData), sizeof(uint8_t), size, pFile.get());
+        }
+
+        vk::PipelineCacheCreateInfo pipelineCacheCI = {
+            .initialDataSize = std::size(cacheData),
+            .pInitialData = std::data(cacheData)
+        };
+
+        m_pVkPipelineCache = device.GetVkDevice().createPipelineCacheUnique(pipelineCacheCI);
+        vkx::setDebugName(device.GetVkDevice(), *m_pVkPipelineCache, "");
     }
 
     auto PipelineCache::GetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) const -> vk::Pipeline {
         auto pImplPipeline = reinterpret_cast<const Pipeline*>(&pipeline);
 
-        ComputePipelineKey key = {.Stage = pImplPipeline->GetShaderModule(0).GetShadeModule()};
-        auto it = m_ComputePipelineCache.find(key);
-        if (it != m_ComputePipelineCache.end())
-            return it->second.get();
+        vk::Pipeline result;
 
-        auto vkPipelineX = CreateComputePipeline(pipeline, state);
-        auto vkPipelineY = vkPipelineX.get();
-        m_ComputePipelineCache.emplace(key, std::move(vkPipelineX));
-        return vkPipelineY;
+        ComputePipelineKey key = {.Stage = pImplPipeline->GetShaderModule(0).GetShadeModule()};
+        if (auto it = m_ComputePipelineCache.find(key); it == m_ComputePipelineCache.end()) {
+            auto vkPipeline = CreateComputePipeline(m_pVkPipelineCache.getOwner(), m_pVkPipelineCache.get(), pipeline, state);
+            result = vkPipeline.get();
+            m_ComputePipelineCache.emplace(key, std::move(vkPipeline));
+        } else {
+            result = it->second.get();
+        }
+        return result;
     }
 }

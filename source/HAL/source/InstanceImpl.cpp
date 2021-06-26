@@ -79,7 +79,7 @@ namespace HAL {
     Instance::~Instance() = default;
 
     auto Instance::GetVkInstance() const -> vk::Instance {
-        return m_pInternal->GetInstance();
+        return m_pInternal->GetVkInstance();
     }
 
     auto Instance::GetAdapters() const -> std::vector<HAL::Adapter> const& {

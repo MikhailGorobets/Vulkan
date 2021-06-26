@@ -270,20 +270,20 @@ namespace HAL {
 
     class DescriptorTable {
     public:
-        auto SetTextureViews(uint32_t slot, HAL::ArrayProxy<HAL::TextureView> const& textures) -> void {
+        auto SetTextureViews(uint32_t slot, HAL::ArraySpan<HAL::TextureView> const& textures) -> void {
             vk::DescriptorImageInfo imageInfo = {
 
             };
         }
 
-        auto SetBufferViews(uint32_t slot, HAL::ArrayProxy<HAL::BufferView> const& buffers) -> void {
+        auto SetBufferViews(uint32_t slot, HAL::ArraySpan<HAL::BufferView> const& buffers) -> void {
             vk::DescriptorBufferInfo bufferInfo = {
 
             };
 
         }
 
-        auto SetSamplers(uint32_t slot, HAL::ArrayProxy<HAL::Sampler> const& samplers) -> void {
+        auto SetSamplers(uint32_t slot, HAL::ArraySpan<HAL::Sampler> const& samplers) -> void {
             vk::DescriptorImageInfo samplerInfo = {
                
             };
@@ -388,7 +388,7 @@ namespace HAL {
             //  auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
         }
 
-        auto WriteDescriptorTables(HAL::ArrayProxy<DescriptorTable> const& tables) -> void {
+        auto WriteDescriptorTables(HAL::ArraySpan<DescriptorTable> const& tables) -> void {
                 
         }
 
@@ -460,7 +460,6 @@ int main(int argc, char* argv[]) {
 
     MemoryStatisticGPU memoryGPU = { pHALDevice->GetVkPhysicalDevice() };
     MemoryStatisticCPU memoryCPU;
-
 
     std::unique_ptr<HAL::RenderPass> pHALRenderPass; {
         vk::AttachmentDescription attachments[] = {
@@ -664,7 +663,7 @@ int main(int argc, char* argv[]) {
                 }      
             }              
         }
-   
+
         ImGui::End();
         ImGui::Render();
    
@@ -693,7 +692,7 @@ int main(int argc, char* argv[]) {
                 }         
             };
                    
-            pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .pAttachments = renderPassAttachments, .AttachmentCount = _countof(renderPassAttachments)});  
+            pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .Attachments = renderPassAttachments});
             ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());               
             pHALCommandList->EndRenderPass();
 
@@ -706,16 +705,14 @@ int main(int argc, char* argv[]) {
         pHALCommandList->End();
      
      
+
         //Wait fence nad Execute command List
         pHALGraphicsCommandQueue->Wait(*pHALFence, pHALFence->GetExpectedValue());  
-        pHALGraphicsCommandQueue->ExecuteCommandLists({ *pHALCommandList });
+        pHALGraphicsCommandQueue->ExecuteCommandLists({*pHALCommandList});
         pHALGraphicsCommandQueue->Signal(*pHALFence, pHALFence->Increment());
      
         //Wait fence and present
         pHALComputeCommandQueue->Present(*pHALSwapChain, frameID, *pHALFence);
-
-
-
         //------------------------------//
 
 
