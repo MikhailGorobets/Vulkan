@@ -37,6 +37,10 @@ namespace HAL {
         auto pImplDevice = reinterpret_cast<Device::Internal*>(m_pDevice);
         m_pCommandBuffer->bindPipeline(vk::PipelineBindPoint::eCompute, pImplDevice->GetPipelineCache().GetComputePipeline(pipeline, state));
     }
+
+    auto CommandList::Internal::Dispath(uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) -> void {
+        m_pCommandBuffer->dispatch(groupCountX, groupCountY, groupCountZ);
+    }
 }
 
 namespace HAL {
@@ -49,6 +53,10 @@ namespace HAL {
 
     auto ComputeCommandList::SetComputePipeline(ComputePipeline const& pipeline, ComputeState const& state) -> void {
         m_pInternal->SetComputePipeline(pipeline, state);      
+    }
+
+    auto ComputeCommandList::Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) -> void {
+        m_pInternal->Dispath(threadGroupCountX, threadGroupCountY, threadGroupCountZ);
     }
 
     CommandList::~CommandList() = default;

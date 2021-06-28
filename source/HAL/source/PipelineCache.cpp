@@ -7,11 +7,11 @@ namespace HAL {
 
         vk::ComputePipelineCreateInfo pipelineCI = {
             .stage = vk::PipelineShaderStageCreateInfo{
-                .stage = pImplPipeline->GetShaderModule(0).GetShaderStage(),
-                .module = pImplPipeline->GetShaderModule(0).GetShadeModule(),
+                .stage = pImplPipeline->GetShaderModule(0).GetVkShaderStage(),
+                .module = pImplPipeline->GetShaderModule(0).GetVkShadeModule(),
                 .pName = pImplPipeline->GetShaderModule(0).GetEntryPoint().c_str()
         },
-            .layout = pImplPipeline->GetLayout()
+            .layout = pImplPipeline->GetVkPiplineLayout()
         };
         auto [result, vkPipelines] = device.createComputePipelinesUnique(cache, {pipelineCI});
         return std::move(vkPipelines.front());
@@ -90,7 +90,7 @@ namespace HAL {
             .pDepthStencilState = &depthStencilStateCI,
             .pColorBlendState = &colorBlendStateCI,
             .pDynamicState = &dynamicStateCI,
-            .layout = pImplPipeline->GetLayout(),
+            .layout = pImplPipeline->GetVkPiplineLayout(),
             .renderPass = renderPass.GetVkRenderPass(),
         };
 
@@ -126,7 +126,7 @@ namespace HAL {
 
         vk::Pipeline result;
 
-        ComputePipelineKey key = {.Stage = pImplPipeline->GetShaderModule(0).GetShadeModule()};
+        ComputePipelineKey key = {.Stage = pImplPipeline->GetShaderModule(0).GetVkShadeModule()};
         if (auto it = m_ComputePipelineCache.find(key); it == m_ComputePipelineCache.end()) {
             auto vkPipeline = CreateComputePipeline(m_pVkPipelineCache.getOwner(), m_pVkPipelineCache.get(), pipeline, state);
             result = vkPipeline.get();

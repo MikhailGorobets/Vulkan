@@ -6,12 +6,12 @@ namespace HAL {
     ShaderModule::ShaderModule(HAL::Device const& device, ShaderBytecode const& code) {
         spirv_cross::CompilerHLSL compiler(reinterpret_cast<const uint32_t*>(code.pData), code.Size / 4);
         m_EntryPoint = compiler.get_entry_points_and_stages()[0].name;
-        m_ShaderStage = *GetShaderStage(compiler.get_execution_model());
+        m_ShaderStage = *GetVkShaderStage(compiler.get_execution_model());
         m_DescriptorsSets = this->ReflectPipelineResources(compiler);
         m_pShaderModule = device.GetVkDevice().createShaderModuleUnique({.codeSize = static_cast<uint32_t>(code.Size), .pCode = reinterpret_cast<uint32_t*>(code.pData)});
     }
 
-    auto ShaderModule::GetShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits> {
+    auto ShaderModule::GetVkShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits> {
         switch (executionModel) {
             case spv::ExecutionModelVertex:
                 return vk::ShaderStageFlagBits::eVertex;
@@ -39,7 +39,7 @@ namespace HAL {
                 uint32_t setID = compiler.get_decoration(resource.id, spv::DecorationDescriptorSet);
                 uint32_t index = compiler.get_decoration(resource.id, spv::DecorationBinding);
                 uint32_t count = typeID.array.empty() ? 1 : typeID.array[0];
-                pipelineResources.emplace(setID, index, count, type, *GetShaderStage(compiler.get_execution_model()));
+                pipelineResources.emplace(setID, index, count, type, *GetVkShaderStage(compiler.get_execution_model()));
             }
         };
 

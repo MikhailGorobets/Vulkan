@@ -21,9 +21,9 @@ namespace HAL {
 
         ~ShaderCompiler();
 
-        auto CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const->std::optional<std::vector<uint8_t>>;
+        auto CompileFromString(std::wstring_view data, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines = std::nullopt) const -> std::optional<std::vector<uint8_t>>;
 
-        auto CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const->std::optional<std::vector<uint8_t>>;
+        auto CompileFromFile(std::wstring_view path, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines = std::nullopt) const -> std::optional<std::vector<uint8_t>>;
 
     private:
         InternalPtr<Internal, InternalSize_ShaderCompiler> m_pInternal;

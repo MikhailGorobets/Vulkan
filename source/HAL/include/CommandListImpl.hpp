@@ -27,6 +27,8 @@ namespace HAL {
 
         auto SetGraphicsPipeline(GraphicsPipeline const& pipeline, GraphicsState const& state) -> void;
         
+        auto Dispath(uint32_t x, uint32_t y, uint32_t z) -> void;
+
         auto GetVkCommandBuffer() const -> vk::CommandBuffer { return *m_pCommandBuffer; }
 
     private:

@@ -8,6 +8,7 @@ set(INCLUDE
     include/CommandListImpl.hpp
     include/CommandQueueImpl.hpp
     include/ComPtr.hpp
+    include/DescriptorTableLayoutImpl.hpp
     include/DeviceImpl.hpp
     include/FenceImpl.hpp
     include/InstanceImpl.hpp
@@ -23,17 +24,18 @@ set(INCLUDE
 
 set(INTERFACE 
     interface/HAL/Adapter.hpp
+    interface/HAL/CommandAllocator.hpp
+    interface/HAL/CommandList.hpp 
+    interface/HAL/CommandQueue.hpp 
+    interface/HAL/DescriptorTableLayout.hpp
     interface/HAL/Device.hpp
+    interface/HAL/Fence.hpp
     interface/HAL/Instance.hpp
     interface/HAL/InternalPtr.hpp
-    interface/HAL/SwapChain.hpp
-    interface/HAL/ShaderCompiler.hpp
-    interface/HAL/Fence.hpp
-    interface/HAL/CommandQueue.hpp
-    interface/HAL/CommandList.hpp
-    interface/HAL/CommandAllocator.hpp
-    interface/HAL/RenderPass.hpp
     interface/HAL/Pipeline.hpp
+    interface/HAL/RenderPass.hpp
+    interface/HAL/SwapChain.hpp
+    interface/HAL/ShaderCompiler.hpp    
 )
 
 set(SOURCE
@@ -41,6 +43,7 @@ set(SOURCE
     source/CommandAllocatorImpl.cpp
     source/CommandListImpl.cpp
     source/CommandQueueImpl.cpp
+    source/DescriptorTableLayoutImpl.cpp
     source/DeviceImpl.cpp   
     source/FenceImpl.cpp    
     source/InstanceImpl.cpp

@@ -1,4 +1,6 @@
+#include "..\interface\HAL\Pipeline.hpp"
 #include "..\include\PipelineImpl.hpp"
+#include "..\include\DescriptorTableLayoutImpl.hpp"
 
 namespace HAL {
 
@@ -18,46 +20,15 @@ namespace HAL {
         return result;
     }
 
-    static auto CreateDescriptorSetLayouts(HAL::Device const& device, std::vector<std::vector<PipelineResource>> const& pipelineResources) {
-        std::vector<vk::UniqueDescriptorSetLayout> setLayouts;
-
-        for (auto const& bindings : pipelineResources) {
-            std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings;
-            std::vector<vk::DescriptorBindingFlags> descriptorBindingFlags;
-
-            for (auto const& binding : bindings) {
-                descriptorSetLayoutBindings.emplace_back(binding.BindingID, binding.DescriptorType, binding.DescriptorCount, binding.Stages);
-                descriptorBindingFlags.push_back(binding.DescriptorCount > 0 ? vk::DescriptorBindingFlags{} : vk::DescriptorBindingFlagBits::eVariableDescriptorCount | vk::DescriptorBindingFlagBits::ePartiallyBound);
-            }
-
-            if (std::size(descriptorSetLayoutBindings) > 0) {
-
-                vk::DescriptorSetLayoutBindingFlagsCreateInfo descriptorSetLayoutBindingFlagsCI = {
-                    .bindingCount = static_cast<uint32_t>(std::size(descriptorBindingFlags)),
-                    .pBindingFlags = std::data(descriptorBindingFlags)
-                };
-
-                vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCI = {
-                    .pNext = &descriptorSetLayoutBindingFlagsCI,
-                    .bindingCount = static_cast<uint32_t>(descriptorSetLayoutBindings.size()),
-                    .pBindings = descriptorSetLayoutBindings.data()
-                };
-                setLayouts.push_back(device.GetVkDevice().createDescriptorSetLayoutUnique(descriptorSetLayoutCI));
-            }
-        }
-        return setLayouts;
-    }
-
-    static auto CreatePipelineLayout(Device const& device, std::vector<vk::UniqueDescriptorSetLayout> const& descriptorSetLayouts) -> vk::UniquePipelineLayout {
-        auto rawDescriptorSetLayouts = vk::uniqueToRaw(descriptorSetLayouts);
+    static auto CreatePipelineLayout(Device const& device, std::vector<vk::DescriptorSetLayout> descriptorSetLayouts) -> vk::UniquePipelineLayout {
         vk::PipelineLayoutCreateInfo pipelineLayoutCI = {
-            .setLayoutCount = static_cast<uint32_t>(std::size(rawDescriptorSetLayouts)),
-            .pSetLayouts = std::data(rawDescriptorSetLayouts)
+            .setLayoutCount = static_cast<uint32_t>(std::size(descriptorSetLayouts)),
+            .pSetLayouts = std::data(descriptorSetLayouts)
         };
         return device.GetVkDevice().createPipelineLayoutUnique(pipelineLayoutCI);
     }
 
-    static auto CreateSetBindings(ShaderModule::StagePipelineResources resources) -> std::vector<std::vector<PipelineResource>> { 
+    static auto SeparateResources(ShaderModule::StagePipelineResources resources) -> std::vector<std::vector<PipelineResource>> { 
         std::vector<std::vector<PipelineResource>> pipelineResources;
         for (auto const& resource : resources) {
             if (pipelineResources.size() <= resource.SetID)
@@ -67,7 +38,7 @@ namespace HAL {
         return pipelineResources;
     }
 
-    Pipeline::Pipeline(Device const& device, HAL::ArrayView<ShaderBytecode> const& byteCodes, vk::PipelineBindPoint bindPoint) {
+    Pipeline::Pipeline(Device const& device, HAL::ArrayView<ShaderBytecode> byteCodes, vk::PipelineBindPoint bindPoint) {
         for (auto const& code : byteCodes)
             m_ShaderModules.push_back(ShaderModule(device, code));
 
@@ -75,15 +46,23 @@ namespace HAL {
         for (auto const& shaderModule : m_ShaderModules)
             mergedPipelineResources = MergePipelineResources(mergedPipelineResources, shaderModule.GetResources());
 
-        m_pPipelineResources = CreateSetBindings(mergedPipelineResources);
-        m_DescriptorSetLaytouts = CreateDescriptorSetLayouts(device, m_pPipelineResources);
-        m_pPipelineLayout = CreatePipelineLayout(device, m_DescriptorSetLaytouts);
+        for (auto const& separatedSet: SeparateResources(mergedPipelineResources))
+            if (!separatedSet.empty())
+                m_PipelineTables.emplace(separatedSet.front().SetID, DescriptorTableLayout(device, separatedSet));
+        
+
+        std::vector<vk::DescriptorSetLayout> layouts;
+        for(auto const& [index, set] : m_PipelineTables)
+            layouts.push_back(set.GetVkDescriptorSetLayout());
+
+        m_pPipelineLayout = CreatePipelineLayout(device, layouts);
         m_BindPoint = bindPoint;
     }
 
-    auto Pipeline::GetDescripiptorSetLayout(uint32_t slot) const -> std::optional<vk::DescriptorSetLayout> {
-        return slot < std::size(m_DescriptorSetLaytouts) ? m_DescriptorSetLaytouts[slot].get() : std::optional<vk::DescriptorSetLayout>{};
+    auto Pipeline::GetDescripiptorTable(uint32_t index) const -> DescriptorTableLayout const& {
+        return m_PipelineTables.at(index);
     }
+
 }
 
 namespace HAL {
@@ -91,6 +70,10 @@ namespace HAL {
     ComputePipeline::ComputePipeline(Device const& device, ComputePipelineCreateInfo const& createInfo): m_pInternal(device, createInfo) {}
 
     ComputePipeline::~ComputePipeline() = default;
+
+    auto ComputePipeline::GetDescriptorTableLayout(uint32_t tableID) const -> DescriptorTableLayout const& {
+        return m_pInternal->GetDescripiptorTable(tableID);
+    }
 
     GraphicsPipeline::GraphicsPipeline(Device const& device, GraphicsPipelineCreateInfo const& createInfo): m_pInternal(device, createInfo) {}
 

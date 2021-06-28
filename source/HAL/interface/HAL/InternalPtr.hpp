@@ -21,6 +21,7 @@ namespace vk {
     class Semaphore;
     class ImageView;
     class RenderPassCreateInfo;
+    class DescriptorSetLayout;
     enum class Format;
     enum class DescriptorType;
     enum class ShaderStageFlagBits: uint32_t;
@@ -102,7 +103,8 @@ namespace HAL {
     constexpr size_t InternalSize_CommandList = 56;
     constexpr size_t InternalSize_RenderPass = 144;
     constexpr size_t InternalSize_ShaderCompiler = 56;
-    constexpr size_t InternalSize_Pipeline = 136;
+    constexpr size_t InternalSize_Pipeline = 152;
+    constexpr size_t InternalSize_DescriptorTableLayout = 112;
 #else
     constexpr size_t InternalSize_Adapter = 2616;
     constexpr size_t InternalSize_Instance = 104;
@@ -115,7 +117,8 @@ namespace HAL {
     constexpr size_t InternalSize_CommandList = 56;
     constexpr size_t InternalSize_RenderPass = 120;
     constexpr size_t InternalSize_ShaderCompiler = 56;
-    constexpr size_t InternalSize_Pipeline = 112;
+    constexpr size_t InternalSize_Pipeline = 128;
+    constexpr size_t InternalSize_DescriptorTableLayout = 96;
 #endif
 }
 
@@ -145,6 +148,7 @@ namespace HAL {
     class GraphicsPipeline;
     class ComputePipeline;
     class DescriptorTable;
+    class DescriptorTableLayout;
        
 }
 
@@ -200,11 +204,11 @@ namespace HAL {
     };
 
     struct PipelineResource {
-        uint32_t                SetID;
-        uint32_t                BindingID;
-        uint32_t                DescriptorCount;
-        vk::DescriptorType      DescriptorType;
-        vk::ShaderStageFlagBits Stages;
+        uint32_t                SetID = {};
+        uint32_t                BindingID = {};
+        uint32_t                DescriptorCount = {};
+        vk::DescriptorType      DescriptorType = {};
+        vk::ShaderStageFlagBits Stages = {};
     };
 
     struct RasterizationState {
@@ -231,12 +235,12 @@ namespace HAL {
     };
 
     struct ColorBlendState {
-        RenderTargetBlendState RenderTarget[8];
+        RenderTargetBlendState RenderTarget[8] = {};
     };
 
     struct ShaderBytecode {
-        uint8_t* pData;
-        uint64_t Size;
+        uint8_t* pData = {};
+        uint64_t Size = {};
     };
 
     struct ComputeState {
@@ -244,20 +248,20 @@ namespace HAL {
     };
 
     struct GraphicsState {
-        RasterizationState RasterState;
-        DepthStencilState  DepthStencilState;
-        ColorBlendState    BlendState;
+        RasterizationState RasterState = {};
+        DepthStencilState  DepthStencilState = {};
+        ColorBlendState    BlendState = {};
     };
 
     struct ComputePipelineCreateInfo {
-        ShaderBytecode CS;
+        ShaderBytecode CS = {};
     };
 
     struct GraphicsPipelineCreateInfo {
-        ShaderBytecode VS;
-        ShaderBytecode PS;
-        ShaderBytecode DS;
-        ShaderBytecode HS;
-        ShaderBytecode GS;
+        ShaderBytecode VS = {};
+        ShaderBytecode PS = {};
+        ShaderBytecode DS = {};
+        ShaderBytecode HS = {};
+        ShaderBytecode GS = {};
     };
 }

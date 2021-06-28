@@ -14,13 +14,11 @@
 #include <fmt/format.h>
 
 
-#include <fstream>
 #include <chrono>
 #include <thread>
 #include <algorithm>
 #include <functional>
 #include <numeric>
-#include <sstream>
 #include <mutex>
 
 #include <HAL/Adapter.hpp>
@@ -32,6 +30,7 @@
 #include <HAL/CommandAllocator.hpp>
 #include <HAL/CommandList.hpp>
 #include <HAL/ShaderCompiler.hpp>
+#include <HAL/DescriptorTableLayout.hpp>
 #include <HAL/Pipeline.hpp>
 
 
@@ -199,65 +198,122 @@ class MemoryStatisticCPU {
  
 namespace HAL {
 
-  
-    struct BufferCreateInfo {
+    enum class MemoryUsage {
+         eUnknown,
+         eGpuOnly,
+         eCpuOnly,
+         eCpuToGpu,
+         eGpuToCpu,
+         eCpuCopy,
+         eGpuLazilyAllocated
+    };
 
+    enum class BufferUsageFlagBits {
+
+    };
+  
+    struct BufferViewCreateInfo {
+        uint64_t Offset = {};
+        uint64_t Range = {};
+        Format   Format = {};
+        bool     IsRawView = {};
+    };
+
+    struct BufferCreateInfo {
+        uint64_t            Size = {};
+        BufferUsageFlagBits BuffferUsage = {};
+        MemoryUsage         MemoryUsage = {};
     };
 
     struct TextureCreateInfo {
-        uint32_t   Width;
-        uint32_t   Height;
-        uint32_t   Depth;
-        uint32_t   ArraySize;
-        uint32_t   MipLevels;
-        vk::Format Format;
+        uint32_t Width = {};
+        uint32_t Height = {};
+        uint32_t Depth = {};
+        uint32_t ArraySize = {};
+        uint32_t MipLevels = {};
+        Format   Format = {};
     };
 
-
- 
- 
-    class BufferView {
-
-    private:
-        vk::BufferViewCreateInfo m_CreateInfo;
-        vk::UniqueBufferView     m_pBufferView;
-    };
-
-    class Buffer {
+    template<typename T>
+    class ObjectBase {
     public:
-        Buffer(BufferCreateInfo const& createInfo) { 
-    
+        ObjectBase(T const& createInfo) : m_CreateInfo(createInfo) {}
 
+        auto GetCreateInfo() const -> T const& { return m_CreateInfo; };
+
+    protected:
+        T m_CreateInfo = {};       
+    };
+  
+    class Buffer final: public ObjectBase<BufferCreateInfo> {
+    public:
+        Buffer(Device const& device, BufferCreateInfo const& createInfo): ObjectBase(createInfo) {
+            
+            vk::BufferCreateInfo bufferCI = {
+                
+            };
+
+            vma::AllocationCreateInfo allocationCI = {
+                .flags = vma::AllocationCreateFlagBits::eWithinBudget,
+                .usage = static_cast<vma::MemoryUsage>(createInfo.MemoryUsage)
+            };
+
+            std::tie(m_pBuffer, m_pAllocation) = device.GetVmaAllocator().createBufferUnique(bufferCI, allocationCI, m_AllocationInfo);         
         }
- 
-        auto GetDefaultView() -> void;
+
+        auto GetCreateInfo() const -> BufferCreateInfo const& { return m_CreateInfo; }
+
+        auto GetVkBuffer() const -> vk::Buffer { return m_pBuffer.get(); }
+    
+        auto GetVmaAllocation() const -> vma::Allocation { return m_pAllocation.get(); }
 
     private:
-        BufferCreateInfo      m_CreateInfo;
-        vk::UniqueBuffer      m_pBuffer;
-        vma::UniqueAllocation m_pAllocation;
-       
+        vma::AllocationInfo   m_AllocationInfo = {};
+        vma::UniqueAllocation m_pAllocation = {};
+        vk::UniqueBuffer      m_pBuffer = {};       
     };
  
+    class BufferView final: public ObjectBase<BufferViewCreateInfo> {
+    public:
+        BufferView(Device const& device, Buffer const& buffer, BufferViewCreateInfo const& createInfo) : ObjectBase(createInfo) {
+            m_Buffer = buffer.GetVkBuffer();
+            if (createInfo.IsRawView) {
+                vk::BufferViewCreateInfo bufferViewCI = {
+                    .buffer = buffer.GetVkBuffer(),
+                    .format = static_cast<vk::Format>(createInfo.Format),
+                    .offset = createInfo.Offset,
+                    .range = createInfo.Range
+                };
+                m_pBufferView = device.GetVkDevice().createBufferViewUnique(bufferViewCI);
+            }
+        }
+
+        auto GetVkBufferView() const -> vk::BufferView { return m_pBufferView.get(); }
+
+        auto GetVkBuffer() const -> vk::Buffer { return m_Buffer; }
+
+    private:
+        vk::Buffer           m_Buffer;
+        vk::UniqueBufferView m_pBufferView;
+    };
+
     class TextureView {
     public:
-        TextureView() {
+        TextureView(Device const& device) {
             
         }
 
     private:
-        vk::UniqueImageView m_pImageView;
+        vk::ImageViewCreateInfo m_CreateInfo;
+        vk::UniqueImageView     m_pImageView;
         
-
     };
 
     class Texture {
     public:
         Texture(TextureCreateInfo const& createInfo) { }
         
-        
-
-        auto GetDefaultView() -> void;
+       
 
     private:
         vma::UniqueAllocation m_pAllocation;
@@ -270,23 +326,21 @@ namespace HAL {
 
     class DescriptorTable {
     public:
-        auto SetTextureViews(uint32_t slot, HAL::ArraySpan<HAL::TextureView> const& textures) -> void {
-            vk::DescriptorImageInfo imageInfo = {
+        DescriptorTable() = default;
 
-            };
+        auto WriteTextureViews(uint32_t index, HAL::ArraySpan<HAL::TextureView> textures) -> void {
+            auto const& resourceInfo = m_pDescriptorTableLayout->GetPipelineResource(index);
+
+            
         }
 
-        auto SetBufferViews(uint32_t slot, HAL::ArraySpan<HAL::BufferView> const& buffers) -> void {
-            vk::DescriptorBufferInfo bufferInfo = {
-
-            };
-
+        auto WriteBufferViews(uint32_t index, HAL::ArraySpan<HAL::BufferView> buffers) -> void {
+            auto const& resourceInfo = m_pDescriptorTableLayout->GetPipelineResource(index);
+            
         }
 
-        auto SetSamplers(uint32_t slot, HAL::ArraySpan<HAL::Sampler> const& samplers) -> void {
-            vk::DescriptorImageInfo samplerInfo = {
-               
-            };
+        auto WriteSamplers(uint32_t index, HAL::ArraySpan<HAL::Sampler> samplers) -> void {
+            auto const& resourceInfo = m_pDescriptorTableLayout->GetPipelineResource(index);
         }
 
         auto UpdateDescriptors() -> void {
@@ -297,33 +351,33 @@ namespace HAL {
                 .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsUniformBuffer)),
                 .descriptorType = vk::DescriptorType::eUniformBufferDynamic,
                 .pBufferInfo = std::data(m_DescriptorsUniformBuffer)
-                });
+            });
 
             descriptortWrites.push_back(vk::WriteDescriptorSet{
                 .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsStorageBuffer)),
                 .descriptorType = vk::DescriptorType::eStorageBuffer,
                 .pBufferInfo = std::data(m_DescriptorsStorageBuffer)
-                });
+            });
 
             descriptortWrites.push_back(vk::WriteDescriptorSet{
                 .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageSampled)),
                 .descriptorType = vk::DescriptorType::eSampledImage,
                 .pImageInfo = std::data(m_DescriptorsImageSampled)
-                });
+            });
 
             descriptortWrites.push_back(vk::WriteDescriptorSet{
                 .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsImageStorage)),
                 .descriptorType = vk::DescriptorType::eStorageImage,
                 .pImageInfo = std::data(m_DescriptorsImageStorage)
-                });
+            });
 
             descriptortWrites.push_back(vk::WriteDescriptorSet{
                 .descriptorCount = static_cast<uint32_t>(std::size(m_DescriptorsSampler)),
                 .descriptorType = vk::DescriptorType::eSampler,
                 .pImageInfo = std::data(m_DescriptorsSampler)
-                });
+            });
 
-            // m_pDescriptorSet.getOwner().updateDescriptorSets(std::size(descriptortWrites), std::data(descriptortWrites), 0, nullptr);
+           
         }
 
     private:
@@ -332,18 +386,20 @@ namespace HAL {
         std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageSampled;
         std::vector<vk::DescriptorImageInfo>  m_DescriptorsImageStorage;
         std::vector<vk::DescriptorImageInfo>  m_DescriptorsSampler;
+        std::vector<vk::BufferView>           m_DescriptorUniformTexelBuffer;
+        std::vector<vk::BufferView>           m_DescriptorStorageTexelBuffer;
 
-        std::reference_wrapper<DescriptorAllocator> m_Allocator;
-        vk::DescriptorSet                           m_pDescriptorSet;
+        DescriptorTableLayout*  m_pDescriptorTableLayout = {};
+        vk::DescriptorSet       m_pDescriptorSet = {};
     };
 
     struct DescriptorAllocatorCreateInfo {
-        uint32_t UniformBufferCount;
-        uint32_t StorageBufferCount;
-        uint32_t SampledImageCount;
-        uint32_t StorageImageCount;
-        uint32_t SamplerCount;
-        uint32_t MaxSets;
+        uint32_t UniformBufferCount = {};
+        uint32_t StorageBufferCount = {};
+        uint32_t SampledImageCount = {};
+        uint32_t StorageImageCount = {};
+        uint32_t SamplerCount = {};
+        uint32_t MaxSets = {};
     };
 
     class DescriptorAllocator {
@@ -365,12 +421,12 @@ namespace HAL {
             m_pDescriptorPool = pDevice.GetVkDevice().createDescriptorPoolUnique(descriptorPoolCI);
         }
 
-        auto Allocate(vk::DescriptorSetLayout layout, std::optional<uint32_t> dynamicDescriptorCount = std::nullopt) -> DescriptorTable {
+        auto Allocate(HAL::DescriptorTableLayout const& layout, std::optional<uint32_t> dynamicDescriptorCount = std::nullopt) -> DescriptorTable {
 
             uint32_t pDescriptorCount[] = { dynamicDescriptorCount.value_or(0) };
 
             vk::DescriptorSetLayout pDescriptorSetLayouts[] = {
-                layout
+                layout.GetVkDescriptorSetLayout()
             };
 
             vk::DescriptorSetVariableDescriptorCountAllocateInfo descriptorSetVariableDescriptorCountAI = {
@@ -385,12 +441,9 @@ namespace HAL {
                 .pSetLayouts = pDescriptorSetLayouts
             };
 
-            //  auto descriptorSet = m_pDescriptorPool.getOwner().allocateDescriptorSets(descriptorSetAllocateInfo).front();
+           return DescriptorTable();
         }
 
-        auto WriteDescriptorTables(HAL::ArraySpan<DescriptorTable> const& tables) -> void {
-                
-        }
 
         auto Flush() -> void {
             m_pDescriptorPool.getOwner().resetDescriptorPool(m_pDescriptorPool.get());
@@ -506,13 +559,12 @@ int main(int argc, char* argv[]) {
         pHALCompiler = std::make_unique<HAL::ShaderCompiler>(shaderCompilerCI);
     }
 
+ 
     std::unique_ptr<HAL::GraphicsPipeline> pHALGraphicsPipeline;
-    std::unique_ptr<HAL::ComputePipeline>  pHALComputePipeline;
-
-    {
-        auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex, {});
-        auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment, {});
-        auto spirvCS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"CSMain", HAL::ShaderStage::Compute, {});
+    std::unique_ptr<HAL::ComputePipeline>  pHALComputePipeline; {
+        auto spirvVS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"VSMain", HAL::ShaderStage::Vertex);
+        auto spirvPS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"PSMain", HAL::ShaderStage::Fragment);
+        auto spirvCS = pHALCompiler->CompileFromFile(L"content/shaders/WaveFront.hlsl", L"CSMain", HAL::ShaderStage::Compute);
       
         HAL::GraphicsPipelineCreateInfo graphicsPipelineCI = {
             .VS = { std::data(*spirvVS), std::size(*spirvVS) },
@@ -524,10 +576,21 @@ int main(int argc, char* argv[]) {
         };
      
         pHALGraphicsPipeline = std::make_unique<HAL::GraphicsPipeline>(*pHALDevice, graphicsPipelineCI);
-        pHALComputePipeline  = std::make_unique<HAL::ComputePipeline>(*pHALDevice, computePipelineCI);   
+        pHALComputePipeline  = std::make_unique<HAL::ComputePipeline>(*pHALDevice, computePipelineCI);      
     }
-       
-    
+
+    std::unique_ptr<HAL::DescriptorAllocator> pHALDescritprorAllocator; {
+        HAL::DescriptorAllocatorCreateInfo descriptorAllocatorCI = {
+            .UniformBufferCount = 10,
+            .StorageBufferCount = 10,
+            .SampledImageCount = 10,
+            .StorageImageCount = 10,
+            .SamplerCount = 10,
+            .MaxSets = 2,
+        };
+        pHALDescritprorAllocator = std::make_unique<HAL::DescriptorAllocator>(*pHALDevice, descriptorAllocatorCI);
+    }
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImPlot::CreateContext();
@@ -691,15 +754,18 @@ int main(int argc, char* argv[]) {
                     .LayerCount = 1            
                 }         
             };
-                   
+
+
+            HAL::DescriptorTable HALDescriptorTable = pHALDescritprorAllocator->Allocate(pHALComputePipeline->GetDescriptorTableLayout(0));        
+     
+            
             pHALCommandList->BeginRenderPass({.pRenderPass = pHALRenderPass.get(), .Attachments = renderPassAttachments});
             ImGui_ImplVulkan_NewFrame(pHALCommandList->GetVkCommandBuffer());               
             pHALCommandList->EndRenderPass();
 
             pHALCommandList->SetComputePipeline(*pHALComputePipeline, {});
-            // pHALCommandList->SetDescriptorTable(0, pHALDescriptorTable);    
-            // pHALCommandList->Dispath(64, 64, 1);
-
+          //  pHALCommandList->SetDescriptorTable(0, HALDescriptorTable);
+          //  pHALCommandList->Dispatch(64, 64, 1);
 
         }
         pHALCommandList->End();
@@ -727,7 +793,5 @@ int main(int argc, char* argv[]) {
     ImGui_ImplGlfw_Shutdown();
     ImPlot::DestroyContext();
     ImGui::DestroyContext();
-
- 
 }
 

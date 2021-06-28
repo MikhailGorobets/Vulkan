@@ -3,6 +3,7 @@
 #include <HAL/Adapter.hpp>
 #include <HAL/Instance.hpp>
 #include <vulkan/vulkan_decl.h>
+#include "DescriptorTableLayoutImpl.hpp"
 
 namespace HAL {
 

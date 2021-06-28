@@ -28,16 +28,16 @@ namespace HAL {
     public:
         ShaderModule(Device const& device, ShaderBytecode const& code);
 
-        auto GetShaderStage() const -> vk::ShaderStageFlagBits { return m_ShaderStage; }
+        auto GetVkShaderStage() const -> vk::ShaderStageFlagBits { return m_ShaderStage; }
 
-        auto GetShadeModule() const -> vk::ShaderModule { return m_pShaderModule.get(); }
+        auto GetVkShadeModule() const -> vk::ShaderModule { return m_pShaderModule.get(); }
 
         auto GetEntryPoint() const -> std::string const& { return m_EntryPoint; }
 
         auto GetResources() const -> StagePipelineResources const& { return m_DescriptorsSets; }
 
     private:
-        auto GetShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits>;
+        auto GetVkShaderStage(spv::ExecutionModel executionModel) const -> std::optional<vk::ShaderStageFlagBits>;
 
         auto ReflectPipelineResources(spirv_cross::CompilerHLSL const& compiler) -> StagePipelineResources;
 

@@ -45,7 +45,7 @@ namespace HAL {
 
         auto SetDescriptorTable(uint32_t slot, DescriptorTable const& table) -> void;
 
-        auto Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ);
+        auto Dispatch(uint32_t threadGroupCountX, uint32_t threadGroupCountY, uint32_t threadGroupCountZ) -> void;
     };
 
     class GraphicsCommandList: public ComputeCommandList {

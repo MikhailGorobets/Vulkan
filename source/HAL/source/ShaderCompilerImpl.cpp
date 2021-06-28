@@ -13,20 +13,20 @@ namespace HAL {
         m_ShaderModel = createInfo.ShaderModelVersion;
     }
 
-    auto ShaderCompiler::Internal::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
+    auto ShaderCompiler::Internal::CompileFromString(std::wstring_view data, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines) const -> std::optional<std::vector<uint8_t>> {
         ComPtr<IDxcBlobEncoding> pDxcSource;
         ThrowIfFailed(m_pDxcUtils->CreateBlob(std::data(data), static_cast<uint32_t>(std::size(data)), CP_UTF8, &pDxcSource));
-        return CompileShaderBlob(pDxcSource, entryPoint, target, defines);
+        return CompileShaderBlob(pDxcSource, entryPoint, target, defines.value_or(std::span<std::wstring_view>{}));
     }
 
-    auto ShaderCompiler::Internal::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
+    auto ShaderCompiler::Internal::CompileFromFile(std::wstring_view path, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines) const -> std::optional<std::vector<uint8_t>> {
         ComPtr<IDxcBlobEncoding> pDxcSource;
-        ThrowIfFailed(m_pDxcUtils->LoadFile(path.c_str(), nullptr, &pDxcSource));
-        return CompileShaderBlob(pDxcSource, entryPoint, target, defines);
+        ThrowIfFailed(m_pDxcUtils->LoadFile(path.data(), nullptr, &pDxcSource));
+        return CompileShaderBlob(pDxcSource, entryPoint, target, defines.value_or(std::span<std::wstring_view>{}));
     }
 
-    auto ShaderCompiler::Internal::CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t>> {
-        auto const GetShaderStage = [](ShaderStage target) -> std::optional<std::wstring> {
+    auto ShaderCompiler::Internal::CompileShaderBlob(ComPtr<IDxcBlobEncoding> pDxcBlob, std::wstring_view entryPoint, ShaderStage target, std::span<std::wstring_view> defines) const -> std::optional<std::vector<uint8_t>> {
+        auto const GetVkShaderStage = [](ShaderStage target) -> std::optional<std::wstring_view> {
             switch (target) {
                 case ShaderStage::Vertex:   return L"vs";
                 case ShaderStage::Geometry: return L"gs";
@@ -38,18 +38,18 @@ namespace HAL {
             }
         };
 
-        auto const GetShaderModel = [](ShaderModel target) -> std::optional<std::wstring> {
+        auto const GetShaderModel = [](ShaderModel target) -> std::optional<std::wstring_view> {
             switch (target) {
                 case ShaderModel::SM_6_5: return L"6_5";
                 default: return std::nullopt;
             }
         };
 
-        const std::wstring shaderProfile = fmt::format(L"{0}_{1}", *GetShaderStage(target), *GetShaderModel(m_ShaderModel));
+        const std::wstring shaderProfile = fmt::format(L"{0}_{1}", *GetVkShaderStage(target), *GetShaderModel(m_ShaderModel));
         const std::wstring shaderVersion = std::to_wstring(2018);
 
         std::vector<const wchar_t*> dxcArguments;
-        dxcArguments.insert(std::end(dxcArguments), {L"-E",  entryPoint.c_str()});
+        dxcArguments.insert(std::end(dxcArguments), {L"-E",  entryPoint.data()});
         dxcArguments.insert(std::end(dxcArguments), {L"-T",  shaderProfile.c_str()});
         dxcArguments.insert(std::end(dxcArguments), {L"-HV", shaderVersion.c_str()});
 
@@ -58,7 +58,7 @@ namespace HAL {
             dxcArguments.insert(std::end(dxcArguments), {L"-fspv-debug=file", L"-fspv-debug=source",  L"-fspv-debug=line",  L"-fspv-debug=tool"});
 
         for (auto const& e : defines)
-            dxcArguments.insert(std::end(dxcArguments), {L"-D", e.c_str()});
+            dxcArguments.insert(std::end(dxcArguments), {L"-D", e.data()});
 
         DxcText dxcBuffer = {};
         dxcBuffer.Ptr = pDxcBlob->GetBufferPointer();
@@ -90,11 +90,11 @@ namespace HAL {
 
     ShaderCompiler::~ShaderCompiler() = default;
 
-    auto ShaderCompiler::CompileFromString(std::wstring const& data, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t >> {
+    auto ShaderCompiler::CompileFromString(std::wstring_view data, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines) const -> std::optional<std::vector<uint8_t>> {
         return m_pInternal->CompileFromString(data, entryPoint, target, defines);
     }
 
-    auto ShaderCompiler::CompileFromFile(std::wstring const& path, std::wstring const& entryPoint, ShaderStage target, std::vector<std::wstring> const& defines) const -> std::optional<std::vector<uint8_t >> {
+    auto ShaderCompiler::CompileFromFile(std::wstring_view path, std::wstring_view entryPoint, ShaderStage target, std::optional<std::span<std::wstring_view>> defines) const -> std::optional<std::vector<uint8_t>> {
         return m_pInternal->CompileFromFile(path, entryPoint, target, defines);
     }
 }
